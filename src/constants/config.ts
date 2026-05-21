@@ -1,0 +1,12 @@
+export const Config = {
+  BASE_URL: '',
+  IS_MOCK_MODE: true,
+  APP_VERSION: '1.0.0',
+  MOCK_DELAY_MS: 800,
+  OTP_RESEND_COUNTDOWN_SECONDS: 30,
+  MAX_BOOKING_DAYS_AHEAD: 30,
+  MAX_COMPANIONS: 2,
+  MIN_PURPOSE_LENGTH: 10,
+  TOKEN_STORAGE_KEY: 'auth_token',
+  ROLE_STORAGE_KEY: 'user_role',
+} as const;
