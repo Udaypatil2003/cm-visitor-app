@@ -1,10 +1,21 @@
 import React from 'react';
-import { View, Text, StyleSheet, Platform } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Platform,
+  Pressable,
+} from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Path, Circle } from 'react-native-svg';
 
-import { Colors, FontSizes, FontWeights, Spacing } from '../constants/theme';
+import { Colors, FontSizes, FontWeights, Spacing, Shadows, BorderRadius } from '../constants/theme';
 import { CitizenStackParamList, CitizenTabParamList } from './types';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 // Screens
 import CitizenHomeScreen from '../app/citizen/CitizenHomeScreen';
@@ -14,25 +25,113 @@ import BookAppointmentScreen from '../app/citizen/BookAppointmentScreen';
 import AppointmentConfirmScreen from '../app/citizen/AppointmentConfirmScreen';
 import AppointmentDetailScreen from '../app/citizen/AppointmentDetailScreen';
 
+// Placeholder screens for Alerts (Step 45 — notifications, not yet built)
+
 const Tab = createBottomTabNavigator<CitizenTabParamList>();
 const Stack = createNativeStackNavigator<CitizenStackParamList>();
 
-// ─── Tab Icons (text-based, no icon lib dependency) ───────────────────────────
+// ─── SVG Tab Icons ────────────────────────────────────────────────────────────
+// Pure SVG — no icon library dependency, pixel-matched to PDF design
 
-interface TabIconProps {
-  emoji: string;
+function HomeIcon({ color }: { color: string }) {
+  return (
+    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H5a1 1 0 01-1-1V9.5z"
+        stroke={color}
+        strokeWidth={1.8}
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M9 21V12h6v9"
+        stroke={color}
+        strokeWidth={1.8}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function HistoryIcon({ color }: { color: string }) {
+  return (
+    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+      <Circle cx={12} cy={12} r={9} stroke={color} strokeWidth={1.8} />
+      <Path
+        d="M12 7v5l3 3"
+        stroke={color}
+        strokeWidth={1.8}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M3.5 3.5L6 6"
+        stroke={color}
+        strokeWidth={1.8}
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
+
+function AlertsIcon({ color, badgeCount }: { color: string; badgeCount?: number }) {
+  return (
+    <View style={{ position: 'relative' }}>
+      <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+        <Path
+          d="M15 17H5a2 2 0 01-2-2v-.5C3 13.6 4 12.8 4 12V8a8 8 0 1116 0v4c0 .8 1 1.6 1 2.5V15a2 2 0 01-2 2h-4z"
+          stroke={color}
+          strokeWidth={1.8}
+          strokeLinejoin="round"
+        />
+        <Path
+          d="M10 17a2 2 0 004 0"
+          stroke={color}
+          strokeWidth={1.8}
+          strokeLinecap="round"
+        />
+      </Svg>
+      {badgeCount !== undefined && badgeCount > 0 && (
+        <View style={tabStyles.badge}>
+          <Text style={tabStyles.badgeText}>
+            {badgeCount > 9 ? '9+' : badgeCount}
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+function ProfileIcon({ color }: { color: string }) {
+  return (
+    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+      <Circle cx={12} cy={8} r={4} stroke={color} strokeWidth={1.8} />
+      <Path
+        d="M4 20c0-4 3.6-7 8-7s8 3 8 7"
+        stroke={color}
+        strokeWidth={1.8}
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
+
+// ─── Tab Label ────────────────────────────────────────────────────────────────
+
+interface TabItemProps {
+  icon: React.ReactNode;
   label: string;
   focused: boolean;
 }
 
-function TabIcon({ emoji, label, focused }: TabIconProps) {
+function TabItem({ icon, label, focused }: TabItemProps) {
   return (
-    <View style={tabStyles.iconContainer}>
-      <Text style={tabStyles.emoji}>{emoji}</Text>
+    <View style={tabStyles.item}>
+      {icon}
       <Text
         style={[
           tabStyles.label,
-          { color: focused ? Colors.primary : Colors.gray500 },
+          { color: focused ? Colors.gold : Colors.gray500 },
         ]}
       >
         {label}
@@ -41,45 +140,84 @@ function TabIcon({ emoji, label, focused }: TabIconProps) {
   );
 }
 
-const tabStyles = StyleSheet.create({
-  iconContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 2,
-    paddingTop: Spacing[1],
-  },
-  emoji: {
-    fontSize: 22,
-  },
-  label: {
-    fontSize: FontSizes.xs,
-    fontWeight: FontWeights.medium,
-  },
-});
+// ─── Custom Tab Bar with FAB ──────────────────────────────────────────────────
+// We use a custom tabBar so we can inject the floating + BOOKING button
+// that sits above the tab bar in the center-right area (matching PDF page 3)
+
+  function CustomTabBar({ state, descriptors, navigation }: any) {
+  const insets = useSafeAreaInsets();
+  const stackNav = useNavigation<NativeStackNavigationProp<CitizenStackParamList>>();
+
+  const tabBarHeight = 64;
+  const bottomPadding = insets.bottom > 0 ? insets.bottom : Platform.OS === 'android' ? 8 : 0;
+
+  return (
+    <View style={[tabBarStyles.wrapper, { paddingBottom: bottomPadding }]}>
+      {/* ── Floating + BOOKING FAB ──────────────────────────────────────── */}
+      <TouchableOpacity
+        style={tabBarStyles.fab}
+        activeOpacity={0.85}
+        onPress={() => stackNav.navigate('BookAppointment')}
+        accessibilityLabel="Book new appointment"
+        accessibilityRole="button"
+      >
+        <Text style={tabBarStyles.fabPlus}>+</Text>
+        <Text style={tabBarStyles.fabLabel}>BOOKING</Text>
+      </TouchableOpacity>
+
+      {/* ── Tab Bar ────────────────────────────────────────────────────── */}
+      <View style={[tabBarStyles.tabBar, { height: tabBarHeight }]}>
+        {state.routes.map((route: any, index: number) => {
+          const { options } = descriptors[route.key];
+          const focused = state.index === index;
+
+          const onPress = () => {
+            const event = navigation.emit({
+              type: 'tabPress',
+              target: route.key,
+              canPreventDefault: true,
+            });
+            if (!focused && !event.defaultPrevented) {
+              navigation.navigate(route.name);
+            }
+          };
+
+          return (
+            <Pressable
+              key={route.key}
+              onPress={onPress}
+              style={tabBarStyles.tabItem}
+              android_ripple={{ color: Colors.goldLight, borderless: true }}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: focused }}
+            >
+              {options.tabBarIcon?.({ focused, color: focused ? Colors.gold : Colors.gray500, size: 22 })}
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
 
 // ─── Bottom Tab Navigator ─────────────────────────────────────────────────────
 
 function CitizenTabs() {
   return (
     <Tab.Navigator
-      screenOptions={{
-        headerShown: false,
-        tabBarShowLabel: false,
-        tabBarStyle: {
-          backgroundColor: Colors.white,
-          borderTopColor: Colors.border,
-          borderTopWidth: 1,
-          height: Platform.OS === 'ios' ? 84 : 64,
-          paddingBottom: Platform.OS === 'ios' ? 24 : 8,
-        },
-      }}
+      tabBar={(props) => <CustomTabBar {...props} />}
+      screenOptions={{ headerShown: false }}
     >
       <Tab.Screen
         name="CitizenHome"
         component={CitizenHomeScreen}
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabIcon emoji="🏠" label="Home" focused={focused} />
+            <TabItem
+              icon={<HomeIcon color={focused ? Colors.gold : Colors.gray500} />}
+              label="Home"
+              focused={focused}
+            />
           ),
         }}
       />
@@ -88,7 +226,11 @@ function CitizenTabs() {
         component={MyAppointmentsScreen}
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabIcon emoji="📋" label="Appointments" focused={focused} />
+            <TabItem
+              icon={<HistoryIcon color={focused ? Colors.gold : Colors.gray500} />}
+              label="History"
+              focused={focused}
+            />
           ),
         }}
       />
@@ -97,7 +239,11 @@ function CitizenTabs() {
         component={EditProfileScreen}
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabIcon emoji="👤" label="Profile" focused={focused} />
+            <TabItem
+              icon={<ProfileIcon color={focused ? Colors.gold : Colors.gray500} />}
+              label="Profile"
+              focused={focused}
+            />
           ),
         }}
       />
@@ -113,7 +259,7 @@ export function CitizenNavigator() {
       {/* Tabs root */}
       <Stack.Screen name="CitizenTabs" component={CitizenTabs} />
 
-      {/* Modal screens — slide up from bottom */}
+      {/* Modal screens */}
       <Stack.Screen
         name="BookAppointment"
         component={BookAppointmentScreen}
@@ -132,14 +278,12 @@ export function CitizenNavigator() {
         }}
       />
 
-      {/* Push screen — slide from right */}
+      {/* Push screens */}
       <Stack.Screen
         name="AppointmentDetail"
         component={AppointmentDetailScreen}
         options={{ animation: 'slide_from_right' }}
       />
-
-      {/* Push screen */}
       <Stack.Screen
         name="EditProfile"
         component={EditProfileScreen}
@@ -148,3 +292,84 @@ export function CitizenNavigator() {
     </Stack.Navigator>
   );
 }
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
+const tabStyles = StyleSheet.create({
+  item: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 3,
+  },
+  label: {
+    fontSize: FontSizes.xs,
+    fontWeight: FontWeights.medium,
+  },
+  badge: {
+    position: 'absolute',
+    top: -4,
+    right: -8,
+    backgroundColor: Colors.danger,
+    borderRadius: BorderRadius.full,
+    minWidth: 16,
+    height: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+  },
+  badgeText: {
+    color: Colors.white,
+    fontSize: 9,
+    fontWeight: FontWeights.bold,
+  },
+});
+
+const tabBarStyles = StyleSheet.create({
+  wrapper: {
+    backgroundColor: Colors.white,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: Colors.border,
+    ...Shadows.md,
+  },
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: Colors.white,
+  },
+  tabItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // ── FAB — floating gold circle button ──────────────────────────────────
+  fab: {
+    position: 'absolute',
+    right: Spacing[5],
+    // Sits 28px above the tab bar top edge so it floats above it
+    top: -56,
+    width: 72,
+    height: 72,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.gold,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 99,
+    ...Shadows.lg,
+    // Gold ring highlight
+    borderWidth: 3,
+    borderColor: Colors.goldLight,
+  },
+  fabPlus: {
+    fontSize: FontSizes.xl,
+    fontWeight: FontWeights.bold,
+    color: Colors.navy,
+    lineHeight: 24,
+    marginTop: -2,
+  },
+  fabLabel: {
+    fontSize: 9,
+    fontWeight: FontWeights.bold,
+    color: Colors.navy,
+    letterSpacing: 0.5,
+    marginTop: -2,
+  },
+});

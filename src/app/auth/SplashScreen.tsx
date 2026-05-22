@@ -1,25 +1,23 @@
 import React, { useEffect, useRef } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Image,
-  Animated,
-  Dimensions,
-} from 'react-native';
+import { View, Text, StyleSheet, Image, Animated, Dimensions } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../../navigation/types';
 import { Colors, FontSizes, Spacing } from '../../constants/theme';
+import { useAuthStore } from '../../store/authStore';
 
 const { width } = Dimensions.get('window');
 type Props = NativeStackScreenProps<AuthStackParamList, 'Splash'>;
 
 export default function SplashScreen({ navigation }: Props) {
-  const shimmerAnim = useRef(new Animated.Value(0)).current;
-  const arrowAnim  = useRef(new Animated.Value(0)).current;
+  const isLoading = useAuthStore((s) => s.isLoading);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const hasNavigated = useRef(false);
 
+  const shimmerAnim = useRef(new Animated.Value(0)).current;
+  const arrowAnim = useRef(new Animated.Value(0)).current;
+
+  // Animations — run once on mount
   useEffect(() => {
-    // Shimmer loop on the loader pill
     Animated.loop(
       Animated.sequence([
         Animated.timing(shimmerAnim, { toValue: 1, duration: 900, useNativeDriver: true }),
@@ -27,18 +25,31 @@ export default function SplashScreen({ navigation }: Props) {
       ])
     ).start();
 
-    // Arrow bounce loop
     Animated.loop(
       Animated.sequence([
         Animated.timing(arrowAnim, { toValue: -6, duration: 500, useNativeDriver: true }),
-        Animated.timing(arrowAnim, { toValue: 0,  duration: 500, useNativeDriver: true }),
+        Animated.timing(arrowAnim, { toValue: 0, duration: 500, useNativeDriver: true }),
       ])
     ).start();
-
-    // Navigate after 2.5s — no auth check here, kept simple
-    const timer = setTimeout(() => navigation.replace('Login'), 2500);
-    return () => clearTimeout(timer);
   }, []);
+
+  // Navigation — waits for hydration to finish, then minimum 2s splash
+  useEffect(() => {
+    if (isLoading || hasNavigated.current) return;
+
+    const timer = setTimeout(() => {
+      if (hasNavigated.current) return;
+      hasNavigated.current = true;
+
+      if (!isAuthenticated) {
+        navigation.replace('Login');
+      }
+      // isAuthenticated === true → RootNavigator already
+      // rendered CitizenNavigator, this screen is unmounted
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, [isLoading, isAuthenticated]);
 
   const loaderOpacity = shimmerAnim.interpolate({
     inputRange: [0, 1],
@@ -63,7 +74,9 @@ export default function SplashScreen({ navigation }: Props) {
         <View style={styles.photoRingInner}>
           {/* Replace uri with your actual CM photo asset */}
           <Image
-            source={{ uri: 'https://via.placeholder.com/200x200/c8a96e/ffffff?text=CM' }}
+            source={{
+              uri: "https://via.placeholder.com/200x200/c8a96e/ffffff?text=CM",
+            }}
             style={styles.photo}
           />
         </View>
@@ -94,7 +107,9 @@ export default function SplashScreen({ navigation }: Props) {
       </Animated.View>
 
       {/* Swipe up hint */}
-      <Animated.View style={[styles.swipeHint, { transform: [{ translateY: arrowAnim }] }]}>
+      <Animated.View
+        style={[styles.swipeHint, { transform: [{ translateY: arrowAnim }] }]}
+      >
         <Text style={styles.swipeArrow}>∧</Text>
         <Text style={styles.swipeText}>SWIPE UP TO BEGIN</Text>
       </Animated.View>
@@ -102,35 +117,35 @@ export default function SplashScreen({ navigation }: Props) {
   );
 }
 
-const GOLD   = '#E8A020';
-const CREAM  = '#FAF8F3';
-const NAVY   = '#1A2B5E';
+const GOLD = "#E8A020";
+const CREAM = "#FAF8F3";
+const NAVY = "#1A2B5E";
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: CREAM,
-    alignItems: 'center',
+    alignItems: "center",
     paddingTop: 60,
   },
   blobTopLeft: {
-    position: 'absolute',
+    position: "absolute",
     top: -40,
     left: -60,
     width: 200,
     height: 200,
     borderRadius: 100,
-    backgroundColor: '#F5E6C8',
+    backgroundColor: "#F5E6C8",
     opacity: 0.6,
   },
   blobBottomRight: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 60,
     right: -80,
     width: 220,
     height: 220,
     borderRadius: 110,
-    backgroundColor: '#EDE8F0',
+    backgroundColor: "#EDE8F0",
     opacity: 0.5,
   },
   topIcon: {
@@ -141,8 +156,8 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: 14,
     backgroundColor: GOLD,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   iconEmoji: {
     fontSize: 22,
@@ -153,42 +168,42 @@ const styles = StyleSheet.create({
     borderRadius: 100,
     borderWidth: 3,
     borderColor: GOLD,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: Spacing.xl,
-    position: 'relative',
+    position: "relative",
   },
   photoRingInner: {
     width: 188,
     height: 188,
     borderRadius: 94,
     borderWidth: 4,
-    borderColor: '#fff',
-    overflow: 'hidden',
+    borderColor: "#fff",
+    overflow: "hidden",
   },
   photo: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
   },
   photoCornerBadge: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 8,
     right: 4,
     width: 36,
     height: 36,
     borderRadius: 18,
     backgroundColor: GOLD,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   titleSection: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: Spacing.xl,
     paddingHorizontal: Spacing.lg,
   },
   title: {
     fontSize: 34,
-    fontWeight: '800',
+    fontWeight: "800",
     color: NAVY,
     letterSpacing: 0.5,
   },
@@ -200,8 +215,8 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   dividerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
     marginBottom: Spacing.md,
   },
@@ -217,39 +232,39 @@ const styles = StyleSheet.create({
   govText: {
     fontSize: 11,
     letterSpacing: 2,
-    color: '#888',
-    fontWeight: '500',
+    color: "#888",
+    fontWeight: "500",
   },
   loaderPill: {
     borderRadius: 30,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: "#ddd",
     paddingHorizontal: Spacing.lg,
     paddingVertical: 12,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     marginBottom: Spacing.lg,
   },
   loaderText: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: "700",
     color: NAVY,
     letterSpacing: 1.5,
   },
   swipeHint: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 40,
-    alignItems: 'center',
+    alignItems: "center",
   },
   swipeArrow: {
     fontSize: 16,
     color: GOLD,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   swipeText: {
     fontSize: 10,
     letterSpacing: 2,
-    color: '#999',
-    fontWeight: '600',
+    color: "#999",
+    fontWeight: "600",
     marginTop: 2,
   },
 });

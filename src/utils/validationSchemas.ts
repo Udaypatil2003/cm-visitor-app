@@ -70,15 +70,14 @@ export const onboardingStep3Schema = z.object({
 });
 
 export const onboardingStep4Schema = z.object({
-  profilePhotoUri: z
-    .string()
-    .min(1, 'Profile photo is required'),
+  profilePhotoUri: z.string().optional().default(''),
 });
 
 export const onboardingSchema = onboardingStep1Schema
   .merge(onboardingStep2Schema)
   .merge(onboardingStep3Schema)
   .merge(onboardingStep4Schema);
+
 
 export const bookAppointmentSchema = z.object({
   appointmentDate: z

@@ -1,6 +1,6 @@
 export const Config = {
-  BASE_URL: '',
-  IS_MOCK_MODE: true,
+  BASE_URL: 'https://appointment.saavi.co.in/api',
+  IS_MOCK_MODE: false,
   APP_VERSION: '1.0.0',
   MOCK_DELAY_MS: 800,
   OTP_RESEND_COUNTDOWN_SECONDS: 30,

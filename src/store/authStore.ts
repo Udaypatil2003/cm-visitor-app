@@ -12,12 +12,14 @@ interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   token: string | null;
+  needsOnboarding: boolean;
 
   // Actions
   setCitizenUser: (user: CitizenUser) => void;
   setGuardUser: (user: GuardUser) => void;
   setToken: (token: string, role: UserRole) => Promise<void>;
   setLoading: (loading: boolean) => void;
+  setNeedsOnboarding: (val: boolean) => void;   // ← add this
   hydrateFromStorage: () => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -29,6 +31,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isAuthenticated: false,
   isLoading: true,   // true on boot — SplashScreen waits for hydration
   token: null,
+  needsOnboarding: false,
 
   // Always call setToken() before this — token must be persisted first
 
@@ -38,15 +41,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   setGuardUser: (user) =>
     set({ guardUser: user, role: 'guard', isAuthenticated: true }),
 
-  setToken: async (token, role) => {
-    try {
-      await SecureStore.setItemAsync(Config.TOKEN_STORAGE_KEY, token);
-      await SecureStore.setItemAsync(Config.ROLE_STORAGE_KEY, role);
-    } catch {
-      // SecureStore write failed — token lives in memory only this session
-    }
-    set({ token, role, isAuthenticated: true });
-  },
+  setNeedsOnboarding: (val: boolean) => set({ needsOnboarding: val }),
+
+
+setToken: async (token, role) => {
+  try {
+    await SecureStore.setItemAsync(Config.TOKEN_STORAGE_KEY, token);
+    await SecureStore.setItemAsync(Config.ROLE_STORAGE_KEY, role);
+  } catch {}
+  set({ token, role, isAuthenticated: true });
+},
 
   setLoading: (loading) => set({ isLoading: loading }),
 
@@ -54,23 +58,26 @@ export const useAuthStore = create<AuthState>((set, get) => ({
    * Called once on app boot from SplashScreen.
    * Reads token + role from SecureStore to restore session.
    */
-  hydrateFromStorage: async () => {
-    set({ isLoading: true });
-    try {
-      const token = await SecureStore.getItemAsync(Config.TOKEN_STORAGE_KEY);
-      const role = await SecureStore.getItemAsync(Config.ROLE_STORAGE_KEY) as UserRole | null;
 
-      if (token && role) {
-        set({ token, role, isAuthenticated: true });
-      } else {
-        set({ isAuthenticated: false });
-      }
-    } catch {
+  hydrateFromStorage: async () => {
+  set({ isLoading: true });
+  try {
+    const token = await SecureStore.getItemAsync(Config.TOKEN_STORAGE_KEY);
+    const role = await SecureStore.getItemAsync(Config.ROLE_STORAGE_KEY) as UserRole | null;
+
+    console.log('HYDRATE — token:', token, 'role:', role);
+
+    if (token && role) {
+      set({ token, role, isAuthenticated: true });
+    } else {
       set({ isAuthenticated: false });
-    } finally {
-      set({ isLoading: false });
     }
-  },
+  } catch {
+    set({ isAuthenticated: false });
+  } finally {
+    set({ isLoading: false });
+  }
+},
 
   logout: async () => {
     try {
@@ -85,6 +92,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       role: null,
       isAuthenticated: false,
       token: null,
+      needsOnboarding: false, 
     });
   },
 }));

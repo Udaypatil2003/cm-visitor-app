@@ -1,9 +1,20 @@
 import { ApiResponse } from '../types/api.types';
 import { CitizenUser, GuardUser } from '../types/user.types';
-import { Config } from '../constants/config';
-import { mockDelay, apiClient } from './api';
-import * as SecureStore from 'expo-secure-store';
+import { apiClient } from './api';
 import * as Endpoints from '../constants/endpoints';
+
+// ─── Request / Response Shapes ────────────────────────────────────────────────
+
+export interface RegisterPayload {
+  username: string;
+  mobilenumber: string;
+  password: string;
+}
+
+export interface LoginPayload {
+  username: string;
+  password: string;
+}
 
 interface RequestOTPResponse {
   message: string;
@@ -15,6 +26,12 @@ interface VerifyOTPResponse {
   user: CitizenUser | null;
 }
 
+interface CitizenAuthResponse {
+  token: string;
+  isNewUser: boolean;
+  user: CitizenUser;
+}
+
 interface GuardLoginResponse {
   token: string;
   guard: GuardUser;
@@ -24,46 +41,110 @@ interface RefreshTokenResponse {
   token: string;
 }
 
-// ─── Mock Data ────────────────────────────────────────────────────────────────
+// ─── Raw API shape from backend ───────────────────────────────────────────────
+// Register returns minimal object (id, username, mobilenumber only).
+// Login returns full object. All profile fields optional to handle both.
 
-const MOCK_CITIZEN: CitizenUser = {
-  id: 'citizen-001',
-  phone: '',                        // filled dynamically on verifyOTP
-  fullName: 'Rahul Sharma',
-  aadhaarNumber: '123456789012',
-  dateOfBirth: '1990-05-15',
-  gender: 'MALE',
-  address: '12, Shanti Nagar, Near Bus Stand',
-  city: 'Nashik',
-  district: 'Nashik',
-  profilePhotoUrl: 'https://i.pravatar.cc/150?img=3',
-  fcmToken: null,
-  createdAt: new Date().toISOString(),
-};
+interface RawCitizenFromAPI {
+  id: number;
+  username: string;
+  mobilenumber: string;
+  fullname?: string | null;
+  aadharnumber?: string | null;
+  dateofbirth?: string | null;
+  gender?: string | null;
+  address?: string | null;
+  city?: string | null;
+  district?: string | null;
+  profilephotourl?: string | null;
+  fcmtoken?: string | null;
+  created_at: string;
+  updated_at: string;
+}
 
-const MOCK_GUARD: GuardUser = {
-  id: 'guard-001',
-  username: 'guard01',
-  fullName: 'Suresh Patil',
-  createdAt: new Date().toISOString(),
-};
+// ─── Mapper ───────────────────────────────────────────────────────────────────
+// Only place in the codebase where backend field names appear.
+// Internal types never change — only this function changes when backend changes.
 
-// Track first-time OTP verify per phone across the session
-const _verifiedPhones = new Set<string>();
+function mapRawCitizenToUser(raw: RawCitizenFromAPI): CitizenUser {
+  return {
+    id: String(raw.id),
+    phone: raw.mobilenumber ?? '',
+    fullName: raw.fullname ?? '',
+    aadhaarNumber: raw.aadharnumber ?? '',
+    dateOfBirth: raw.dateofbirth ?? '',
+    gender: normalizeGender(raw.gender ?? null),
+    address: raw.address ?? '',
+    city: raw.city ?? '',
+    district: raw.district ?? '',
+    profilePhotoUrl: raw.profilephotourl ?? '',
+    fcmToken: raw.fcmtoken ?? null,
+    createdAt: raw.created_at,
+  };
+}
+
+function normalizeGender(raw: string | null): CitizenUser['gender'] {
+  if (!raw) return 'OTHER';
+  const g = raw.toUpperCase();
+  if (g === 'MALE') return 'MALE';
+  if (g === 'FEMALE') return 'FEMALE';
+  return 'OTHER';
+}
+
+// Citizen needs onboarding if fullname has never been set
+function isNewCitizen(raw: RawCitizenFromAPI): boolean {
+  return !raw.fullname || raw.fullname.trim() === '';
+}
 
 // ─── Service ──────────────────────────────────────────────────────────────────
 
 const authService = {
-  async requestOTP(phone: string): Promise<ApiResponse<RequestOTPResponse>> {
-    if (Config.IS_MOCK_MODE) {
-      await mockDelay();
-      return {
-        success: true,
-        data: { message: `OTP sent to ${phone}` },
-        message: 'OTP sent successfully',
-      };
-    }
 
+  async registerCitizen(
+    payload: RegisterPayload
+  ): Promise<ApiResponse<CitizenAuthResponse>> {
+    const response = await apiClient.post<{
+      success: boolean;
+      message: string;
+      token: string;
+      citizen: RawCitizenFromAPI;
+    }>(Endpoints.CITIZEN_REGISTER, payload);
+
+    const { token, citizen } = response.data;
+    return {
+      success: true,
+      data: {
+        token,
+        isNewUser: true, // register always → onboarding
+        user: mapRawCitizenToUser(citizen),
+      },
+      message: response.data.message,
+    };
+  },
+
+  async loginCitizen(
+    payload: LoginPayload
+  ): Promise<ApiResponse<CitizenAuthResponse>> {
+    const response = await apiClient.post<{
+      success: boolean;
+      message: string;
+      token: string;
+      citizen: RawCitizenFromAPI;
+    }>(Endpoints.CITIZEN_LOGIN, payload);
+
+    const { token, citizen } = response.data;
+    return {
+      success: true,
+      data: {
+        token,
+        isNewUser: isNewCitizen(citizen),
+        user: mapRawCitizenToUser(citizen),
+      },
+      message: response.data.message,
+    };
+  },
+
+  async requestOTP(phone: string): Promise<ApiResponse<RequestOTPResponse>> {
     const response = await apiClient.post<ApiResponse<RequestOTPResponse>>(
       Endpoints.REQUEST_OTP,
       { phone }
@@ -75,36 +156,6 @@ const authService = {
     phone: string,
     otp: string
   ): Promise<ApiResponse<VerifyOTPResponse>> {
-    if (Config.IS_MOCK_MODE) {
-      await mockDelay();
-
-      // Any 6-digit OTP passes in mock mode
-      if (!/^\d{6}$/.test(otp)) {
-        throw {
-          success: false,
-          message: 'Invalid OTP. Please enter the 6-digit code.',
-          code: 'INVALID_OTP',
-        };
-      }
-
-      const isNewUser = !_verifiedPhones.has(phone);
-      _verifiedPhones.add(phone);
-
-      const user: CitizenUser | null = isNewUser
-        ? null
-        : { ...MOCK_CITIZEN, phone };
-
-      return {
-        success: true,
-        data: {
-          token: `mock-citizen-jwt-token-${phone}`,
-          isNewUser,
-          user,
-        },
-        message: 'OTP verified successfully',
-      };
-    }
-
     const response = await apiClient.post<ApiResponse<VerifyOTPResponse>>(
       Endpoints.VERIFY_OTP,
       { phone, otp }
@@ -116,27 +167,6 @@ const authService = {
     username: string,
     password: string
   ): Promise<ApiResponse<GuardLoginResponse>> {
-    if (Config.IS_MOCK_MODE) {
-      await mockDelay();
-
-      if (username !== 'guard01' || password !== '1234') {
-        throw {
-          success: false,
-          message: 'Invalid username or password.',
-          code: 'INVALID_CREDENTIALS',
-        };
-      }
-
-      return {
-        success: true,
-        data: {
-          token: 'mock-guard-jwt-token',
-          guard: MOCK_GUARD,
-        },
-        message: 'Login successful',
-      };
-    }
-
     const response = await apiClient.post<ApiResponse<GuardLoginResponse>>(
       Endpoints.GUARD_LOGIN,
       { username, password }
@@ -145,28 +175,14 @@ const authService = {
   },
 
   async logout(): Promise<void> {
-    if (Config.IS_MOCK_MODE) {
-      await mockDelay();
-      return;
-    }
-
     try {
       await apiClient.post(Endpoints.LOGOUT);
     } catch {
-      // Logout API failure is non-fatal — local state is cleared regardless
+      // Non-fatal — local state cleared regardless
     }
   },
 
   async refreshToken(): Promise<ApiResponse<RefreshTokenResponse>> {
-    if (Config.IS_MOCK_MODE) {
-      await mockDelay();
-      return {
-        success: true,
-        data: { token: 'mock-refreshed-jwt-token' },
-        message: 'Token refreshed',
-      };
-    }
-
     const response = await apiClient.post<ApiResponse<RefreshTokenResponse>>(
       Endpoints.REFRESH_TOKEN
     );

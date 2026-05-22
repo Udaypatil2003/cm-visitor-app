@@ -30,5 +30,5 @@ export interface OnboardingFormData {
   address: string;
   city: string;
   district: string;
-  profilePhotoUri: string;
+profilePhotoUri?: string;
 }

@@ -5,7 +5,6 @@ import { NavigatorScreenParams } from '@react-navigation/native';
 export type AuthStackParamList = {
   Splash: undefined;
   Welcome: undefined;
-  CitizenOnboarding: undefined;
   Login: undefined;
 };
 
@@ -15,6 +14,7 @@ export type CitizenTabParamList = {
   CitizenHome: undefined;
   MyAppointments: undefined;
   Profile: undefined;
+  Alerts: undefined;
 };
 
 // ─── Citizen Stack (wraps tabs + modals + push screens) ───────────────────────

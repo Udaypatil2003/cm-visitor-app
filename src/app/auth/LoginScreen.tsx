@@ -25,192 +25,103 @@ import {
   BorderRadius,
   Shadows,
 } from "../../constants/theme";
-import { CitizenUser } from "../../types/user.types";
 
 type Props = NativeStackScreenProps<AuthStackParamList, "Login">;
-type MainTab = "login" | "register";
-type OtpStep = "phone" | "verify";
+type ActiveForm = "login" | "register";
 
 export default function LoginScreen({ navigation }: Props) {
-  const [mainTab, setMainTab] = useState<MainTab>("login");
-  const [otpStep, setOtpStep] = useState<OtpStep>("phone");
-  const [showGuard, setShowGuard] = useState(false);
+  const [activeForm, setActiveForm] = useState<ActiveForm>("login");
 
-  // Citizen
-  const [phone, setPhone] = useState("");
-  const [otp, setOtp] = useState("");
-  const [resendTimer, setResendTimer] = useState(0);
+  // Login state
+  const [loginUsername, setLoginUsername] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [loginPasswordVisible, setLoginPasswordVisible] = useState(false);
 
-  // Guard
-  const [guardUsername, setGuardUsername] = useState("");
-  const [guardPassword, setGuardPassword] = useState("");
-  const [guardPasswordVisible, setGuardPasswordVisible] = useState(false);
-
-  // Register
-  const [regPhone, setRegPhone] = useState("");
+  // Register state
+  const [regUsername, setRegUsername] = useState("");
+  const [regMobile, setRegMobile] = useState("");
+  const [regPassword, setRegPassword] = useState("");
+  const [regPasswordVisible, setRegPasswordVisible] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const { setCitizenUser, setGuardUser, setToken } = useAuthStore();
-
-  useEffect(
-    () => () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    },
-    [],
-  );
-
-  const startResendTimer = () => {
-    setResendTimer(30);
-    timerRef.current = setInterval(() => {
-      setResendTimer((prev) => {
-        if (prev <= 1) {
-          clearInterval(timerRef.current!);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  };
+  const { setCitizenUser, setToken,setNeedsOnboarding  } = useAuthStore();
 
   const clearError = () => setError("");
 
-  const switchTab = (tab: MainTab) => {
-    setMainTab(tab);
+  const switchForm = (form: ActiveForm) => {
+    setActiveForm(form);
     setError("");
-    setOtpStep("phone");
-    setOtp("");
-    setShowGuard(false);
   };
 
-  // ── Citizen OTP ──────────────────────────────────────────────────────────
-  const handleSendOtp = async () => {
-    if (phone.length !== 10) {
-      setError("Enter a valid 10-digit mobile number");
-      return;
-    }
-    clearError();
-    setLoading(true);
-    try {
-      const res = await authService.requestOTP(phone);
-      if (res.success) {
-        setOtpStep("verify");
-        startResendTimer();
-      } else setError(res.message || "Failed to send OTP");
-    } catch {
-      setError("Network error. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerifyOtp = async () => {
-    if (otp.length !== 6) {
-      setError("Enter the 6-digit OTP");
-      return;
-    }
-    clearError();
-    setLoading(true);
-    try {
-      const res = await authService.verifyOTP(phone, otp);
-      if (res.success) {
-        setToken(res.data.token, "citizen");
-        if (res.data.isNewUser || !res.data.user)
-          navigation.replace("CitizenOnboarding");
-        else setCitizenUser(res.data.user);
-      } else setError(res.message || "Invalid OTP");
-    } catch {
-      setError("Verification failed. Try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleResendOtp = async () => {
-    if (resendTimer > 0) return;
-    clearError();
-    setLoading(true);
-    try {
-      await authService.requestOTP(phone);
-      startResendTimer();
-    } catch {
-      setError("Failed to resend OTP");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // ── Guard ────────────────────────────────────────────────────────────────
-  const handleGuardLogin = async () => {
-    if (!guardUsername.trim()) {
+  // ── Citizen Login ─────────────────────────────────────────────────────────
+  const handleLogin = async () => {
+    if (!loginUsername.trim()) {
       setError("Enter your username");
       return;
     }
-    if (!guardPassword.trim()) {
+    if (!loginPassword.trim()) {
       setError("Enter your password");
       return;
     }
     clearError();
     setLoading(true);
     try {
-      const res = await authService.guardLogin(
-        guardUsername.trim(),
-        guardPassword,
-      );
+      const res = await authService.loginCitizen({
+        username: loginUsername.trim(),
+        password: loginPassword,
+      });
       if (res.success) {
-        setToken(res.data.token, "guard");
-        setGuardUser(res.data.guard);
-      } else setError(res.message || "Invalid credentials");
-    } catch {
-      setError("Login failed. Please try again.");
+        setToken(res.data.token, "citizen");
+        if (res.data.isNewUser) {
+          setNeedsOnboarding(true);
+        } else {
+          setCitizenUser(res.data.user);
+        }
+      } else {
+        setError(res.message || "Login failed");
+      }
+    } catch (err: any) {
+      setError(err?.message || "Login failed. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  // ── Register: route to OTP → onboarding ────────────────────────────────
-  const handleRegisterContinue = async () => {
-    if (regPhone.length !== 10) {
+  // ── Citizen Register ──────────────────────────────────────────────────────
+  const handleRegister = async () => {
+    if (!regUsername.trim()) {
+      setError("Enter a username");
+      return;
+    }
+    if (regMobile.length !== 10) {
       setError("Enter a valid 10-digit mobile number");
+      return;
+    }
+    if (regPassword.length < 6) {
+      setError("Password must be at least 6 characters");
       return;
     }
     clearError();
     setLoading(true);
     try {
-      const res = await authService.requestOTP(regPhone);
+      const res = await authService.registerCitizen({
+        username: regUsername.trim(),
+        mobilenumber: regMobile,
+        password: regPassword,
+      });
       if (res.success) {
-        setPhone(regPhone);
-        setMainTab("login");
-        setOtpStep("verify");
-        startResendTimer();
-      } else setError(res.message || "Failed to send OTP");
-    } catch {
-      setError("Network error. Please try again.");
+        setToken(res.data.token, "citizen");
+        setNeedsOnboarding(true);
+      } else {
+        setError(res.message || "Registration failed");
+      }
+    } catch (err: any) {
+      setError(err?.message || "Registration failed. Please try again.");
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleDevBypass = async () => {
-    await useAuthStore.getState().setToken("dev-mock-token", "citizen");
-    useAuthStore.getState().setCitizenUser(MOCK_CITIZEN);
-  };
-
-  const MOCK_CITIZEN: CitizenUser = {
-    id: "dev-001",
-    phone: "9999999999",
-    fullName: "Raj Sharma",
-    aadhaarNumber: "123456789012",
-    dateOfBirth: "1990-05-15",
-    gender: "MALE",
-    address: "12, Green Park Colony, Near Railway Station",
-    city: "Virar",
-    district: "Palghar",
-    profilePhotoUrl: "https://i.pravatar.cc/150?img=8",
-    fcmToken: null,
-    createdAt: new Date().toISOString(),
   };
 
   return (
@@ -244,7 +155,6 @@ export default function LoginScreen({ navigation }: Props) {
               }}
               style={s.heroImage}
             />
-            {/* Gradient overlay effect */}
             <View style={s.heroOverlay} />
             <View style={s.locationBadge}>
               <View style={s.locationIcon}>
@@ -257,30 +167,33 @@ export default function LoginScreen({ navigation }: Props) {
             </View>
           </View>
 
-          {/* ── Main Tabs: Login / Register ── */}
+          {/* ── Tab Switcher ── */}
           <View style={s.mainTabWrap}>
             <View style={s.mainTabPill}>
               <TouchableOpacity
-                style={[s.mainTab, mainTab === "login" && s.mainTabActive]}
-                onPress={() => switchTab("login")}
+                style={[s.mainTab, activeForm === "login" && s.mainTabActive]}
+                onPress={() => switchForm("login")}
               >
                 <Text
                   style={[
                     s.mainTabText,
-                    mainTab === "login" && s.mainTabTextActive,
+                    activeForm === "login" && s.mainTabTextActive,
                   ]}
                 >
                   Login
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[s.mainTab, mainTab === "register" && s.mainTabActive]}
-                onPress={() => switchTab("register")}
+                style={[
+                  s.mainTab,
+                  activeForm === "register" && s.mainTabActive,
+                ]}
+                onPress={() => switchForm("register")}
               >
                 <Text
                   style={[
                     s.mainTabText,
-                    mainTab === "register" && s.mainTabTextActive,
+                    activeForm === "register" && s.mainTabTextActive,
                   ]}
                 >
                   Register
@@ -289,169 +202,24 @@ export default function LoginScreen({ navigation }: Props) {
             </View>
           </View>
 
-          {/* ── LOGIN CONTENT ── */}
-          {mainTab === "login" && !showGuard && (
+          {/* ── LOGIN FORM ── */}
+          {activeForm === "login" && (
             <View style={s.form}>
-              {otpStep === "phone" ? (
-                <>
-                  <Text style={s.formTitle}>Welcome Back</Text>
-                  <Text style={s.formSub}>
-                    Enter your phone number to receive a secure OTP.
-                  </Text>
-
-                  {/* Phone input */}
-                  <View style={s.phoneWrap}>
-                    <Text style={s.phonePrefix}>📞 +91</Text>
-                    <View style={s.phoneDivider} />
-                    <TextInput
-                      style={s.phoneInput}
-                      placeholder="00000 00000"
-                      placeholderTextColor={Colors.placeholder}
-                      keyboardType="phone-pad"
-                      maxLength={10}
-                      value={phone}
-                      onChangeText={(t) => {
-                        setPhone(t.replace(/\D/g, ""));
-                        clearError();
-                      }}
-                    />
-                  </View>
-
-                  {/* Secure note */}
-                  <View style={s.noteCard}>
-                    <View style={s.noteIconWrap}>
-                      <Text>🛡</Text>
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={s.noteTitle}>Secure Login</Text>
-                      <Text style={s.noteBody}>
-                        Verification is handled via encrypted mobile OTP systems
-                        for your security.
-                      </Text>
-                    </View>
-                  </View>
-
-                  {error ? <Text style={s.error}>{error}</Text> : null}
-
-                  <TouchableOpacity
-                    style={[s.cta, loading && s.ctaDisabled]}
-                    onPress={handleSendOtp}
-                    disabled={loading}
-                    activeOpacity={0.82}
-                  >
-                    {loading ? (
-                      <ActivityIndicator color={Colors.white} />
-                    ) : (
-                      <Text style={s.ctaText}>Send OTP →</Text>
-                    )}
-                  </TouchableOpacity>
-
-                  {/* Guard login link */}
-                  <TouchableOpacity
-                    style={s.guardLink}
-                    onPress={() => {
-                      setShowGuard(true);
-                      clearError();
-                    }}
-                  >
-                    <Text style={s.guardLinkText}>🔒 Guard Login</Text>
-                  </TouchableOpacity>
-                </>
-              ) : (
-                <>
-                  <Text style={s.formTitle}>Verify OTP</Text>
-                  <Text style={s.formSub}>
-                    OTP sent to +91 {phone}
-                    {"  "}
-                    <Text
-                      style={s.link}
-                      onPress={() => {
-                        setOtpStep("phone");
-                        setOtp("");
-                        clearError();
-                      }}
-                    >
-                      Change
-                    </Text>
-                  </Text>
-
-                  <TextInput
-                    style={s.otpInput}
-                    placeholder="• • • • • •"
-                    placeholderTextColor={Colors.placeholder}
-                    keyboardType="number-pad"
-                    maxLength={6}
-                    value={otp}
-                    onChangeText={(t) => {
-                      setOtp(t.replace(/\D/g, ""));
-                      clearError();
-                    }}
-                    textAlign="center"
-                  />
-
-                  <TouchableOpacity
-                    onPress={handleResendOtp}
-                    disabled={resendTimer > 0 || loading}
-                    style={s.resendRow}
-                  >
-                    <Text
-                      style={[
-                        s.resendText,
-                        resendTimer > 0 && s.resendDisabled,
-                      ]}
-                    >
-                      {resendTimer > 0
-                        ? `Resend OTP in ${resendTimer}s`
-                        : "Resend OTP"}
-                    </Text>
-                  </TouchableOpacity>
-
-                  {error ? <Text style={s.error}>{error}</Text> : null}
-
-                  <TouchableOpacity
-                    style={[s.cta, loading && s.ctaDisabled]}
-                    onPress={handleVerifyOtp}
-                    disabled={loading}
-                    activeOpacity={0.82}
-                  >
-                    {loading ? (
-                      <ActivityIndicator color={Colors.white} />
-                    ) : (
-                      <Text style={s.ctaText}>Verify & Continue →</Text>
-                    )}
-                  </TouchableOpacity>
-                </>
-              )}
-            </View>
-          )}
-
-          {/* ── GUARD LOGIN ── */}
-          {mainTab === "login" && showGuard && (
-            <View style={s.form}>
-              <TouchableOpacity
-                onPress={() => {
-                  setShowGuard(false);
-                  clearError();
-                }}
-                style={s.backRow}
-              >
-                <Text style={s.backText}>← Back</Text>
-              </TouchableOpacity>
-
-              <Text style={s.formTitle}>Guard Login</Text>
+              <Text style={s.formTitle}>Welcome Back</Text>
               <Text style={s.formSub}>
-                Enter your assigned ID and password.
+                Sign in with your username and password.
               </Text>
 
-              <Text style={s.label}>Username / ID</Text>
+              <Text style={s.label}>Username</Text>
               <TextInput
                 style={s.input}
-                placeholder="guard01"
+                placeholder="Enter your username"
                 placeholderTextColor={Colors.placeholder}
                 autoCapitalize="none"
-                value={guardUsername}
+                autoCorrect={false}
+                value={loginUsername}
                 onChangeText={(t) => {
-                  setGuardUsername(t);
+                  setLoginUsername(t);
                   clearError();
                 }}
               />
@@ -459,21 +227,24 @@ export default function LoginScreen({ navigation }: Props) {
               <Text style={s.label}>Password</Text>
               <View style={s.passwordWrap}>
                 <TextInput
-                  style={[s.input, { flex: 1, borderWidth: 0 }]}
+                  style={[
+                    s.input,
+                    { flex: 1, borderWidth: 0, marginBottom: 0 },
+                  ]}
                   placeholder="••••••••"
                   placeholderTextColor={Colors.placeholder}
-                  secureTextEntry={!guardPasswordVisible}
-                  value={guardPassword}
+                  secureTextEntry={!loginPasswordVisible}
+                  value={loginPassword}
                   onChangeText={(t) => {
-                    setGuardPassword(t);
+                    setLoginPassword(t);
                     clearError();
                   }}
                 />
                 <TouchableOpacity
-                  onPress={() => setGuardPasswordVisible((v) => !v)}
+                  onPress={() => setLoginPasswordVisible((v) => !v)}
                   style={s.eyeBtn}
                 >
-                  <Text>{guardPasswordVisible ? "🙈" : "👁"}</Text>
+                  <Text>{loginPasswordVisible ? "🙈" : "👁"}</Text>
                 </TouchableOpacity>
               </View>
 
@@ -481,28 +252,52 @@ export default function LoginScreen({ navigation }: Props) {
 
               <TouchableOpacity
                 style={[s.cta, loading && s.ctaDisabled]}
-                onPress={handleGuardLogin}
+                onPress={handleLogin}
                 disabled={loading}
                 activeOpacity={0.82}
               >
                 {loading ? (
                   <ActivityIndicator color={Colors.white} />
                 ) : (
-                  <Text style={s.ctaText}>Login as Guard →</Text>
+                  <Text style={s.ctaText}>Login →</Text>
                 )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={s.switchPrompt}
+                onPress={() => switchForm("register")}
+              >
+                <Text style={s.switchPromptText}>
+                  New here?{" "}
+                  <Text style={s.switchPromptLink}>Create an account</Text>
+                </Text>
               </TouchableOpacity>
             </View>
           )}
 
-          {/* ── REGISTER CONTENT ── */}
-          {mainTab === "register" && (
+          {/* ── REGISTER FORM ── */}
+          {activeForm === "register" && (
             <View style={s.form}>
-              <Text style={s.formTitle}>New Visitor</Text>
+              <Text style={s.formTitle}>Create Account</Text>
               <Text style={s.formSub}>
-                Register with your mobile number. You'll verify via OTP, then
-                complete your profile.
+                Register with your mobile number. Complete your profile after.
               </Text>
 
+              <Text style={s.label}>Username</Text>
+              <TextInput
+                style={s.input}
+                placeholder="Choose a username"
+                placeholderTextColor={Colors.placeholder}
+                autoCapitalize="none"
+                autoCorrect={false}
+                value={regUsername}
+                onChangeText={(t) => {
+                  setRegUsername(t);
+                  clearError();
+                }}
+              />
+
+              <Text style={s.label}>Mobile Number</Text>
               <View style={s.phoneWrap}>
                 <Text style={s.phonePrefix}>📞 +91</Text>
                 <View style={s.phoneDivider} />
@@ -512,12 +307,36 @@ export default function LoginScreen({ navigation }: Props) {
                   placeholderTextColor={Colors.placeholder}
                   keyboardType="phone-pad"
                   maxLength={10}
-                  value={regPhone}
+                  value={regMobile}
                   onChangeText={(t) => {
-                    setRegPhone(t.replace(/\D/g, ""));
+                    setRegMobile(t.replace(/\D/g, ""));
                     clearError();
                   }}
                 />
+              </View>
+
+              <Text style={s.label}>Password</Text>
+              <View style={s.passwordWrap}>
+                <TextInput
+                  style={[
+                    s.input,
+                    { flex: 1, borderWidth: 0, marginBottom: 0 },
+                  ]}
+                  placeholder="Min. 6 characters"
+                  placeholderTextColor={Colors.placeholder}
+                  secureTextEntry={!regPasswordVisible}
+                  value={regPassword}
+                  onChangeText={(t) => {
+                    setRegPassword(t);
+                    clearError();
+                  }}
+                />
+                <TouchableOpacity
+                  onPress={() => setRegPasswordVisible((v) => !v)}
+                  style={s.eyeBtn}
+                >
+                  <Text>{regPasswordVisible ? "🙈" : "👁"}</Text>
+                </TouchableOpacity>
               </View>
 
               <View style={s.noteCard}>
@@ -527,8 +346,8 @@ export default function LoginScreen({ navigation }: Props) {
                 <View style={{ flex: 1 }}>
                   <Text style={s.noteTitle}>What happens next?</Text>
                   <Text style={s.noteBody}>
-                    Verify your number via OTP, then complete your
-                    Aadhaar-linked profile for gate access.
+                    After registering, complete your Aadhaar-linked profile for
+                    gate access.
                   </Text>
                 </View>
               </View>
@@ -537,49 +356,26 @@ export default function LoginScreen({ navigation }: Props) {
 
               <TouchableOpacity
                 style={[s.cta, loading && s.ctaDisabled]}
-                onPress={handleRegisterContinue}
+                onPress={handleRegister}
                 disabled={loading}
                 activeOpacity={0.82}
               >
                 {loading ? (
                   <ActivityIndicator color={Colors.white} />
                 ) : (
-                  <Text style={s.ctaText}>Register & Verify →</Text>
+                  <Text style={s.ctaText}>Register & Continue →</Text>
                 )}
               </TouchableOpacity>
-            </View>
-          )}
 
-          {__DEV__ && (
-            <View style={s.devBar}>
-              <Text style={s.devLabel}>⚡ DEV SHORTCUTS</Text>
-              <View style={s.devRow}>
-                <TouchableOpacity style={s.devBtn} onPress={handleDevBypass}>
-                  <Text style={s.devBtnText}>→ Citizen Home</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={s.devBtn}
-                  onPress={async () => {
-                    await useAuthStore
-                      .getState()
-                      .setToken("dev-guard-token", "guard");
-                    useAuthStore.getState().setGuardUser({
-                      id: "guard-dev-001",
-                      username: "guard01",
-                      fullName: "Suresh Patil",
-                      createdAt: new Date().toISOString(),
-                    });
-                  }}
-                >
-                  <Text style={s.devBtnText}>→ Guard Home</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={s.devBtn}
-                  onPress={() => navigation.replace("CitizenOnboarding")}
-                >
-                  <Text style={s.devBtnText}>→ Onboarding</Text>
-                </TouchableOpacity>
-              </View>
+              <TouchableOpacity
+                style={s.switchPrompt}
+                onPress={() => switchForm("login")}
+              >
+                <Text style={s.switchPromptText}>
+                  Already registered?{" "}
+                  <Text style={s.switchPromptLink}>Login</Text>
+                </Text>
+              </TouchableOpacity>
             </View>
           )}
 
@@ -595,82 +391,84 @@ export default function LoginScreen({ navigation }: Props) {
   );
 }
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
+// Keep all values from theme — no hardcoded numbers below
+
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.white },
-  scroll: { flexGrow: 1, paddingBottom: 48 },
+  scroll: { paddingBottom: Spacing.xxl },
 
-  // Header — matches PDF exactly
+  // Header
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.md,
-    paddingBottom: Spacing.sm,
+    paddingVertical: Spacing.md,
   },
-  headerLeft: { flexDirection: "row", alignItems: "center", gap: 10 },
+  headerLeft: { flexDirection: "row", alignItems: "center", gap: Spacing.sm },
   logoBadge: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    backgroundColor: Colors.gold,
+    width: 36,
+    height: 36,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: Colors.primaryLight,
     alignItems: "center",
     justifyContent: "center",
   },
-  logoEmoji: { fontSize: 18 },
+  logoEmoji: { fontSize: FontSizes.lg },
   headerTitle: {
-    fontSize: FontSizes.lg,
-    fontWeight: FontWeights.bold,
-    color: Colors.navy,
+    fontSize: FontSizes.md,
+    fontWeight: FontWeights.semibold,
+    color: Colors.textPrimary,
   },
-  headerPin: { fontSize: 22 },
+  headerPin: { fontSize: FontSizes.lg },
 
   // Hero
   heroWrap: {
+    position: "relative",
+    height: 200,
     marginHorizontal: Spacing.lg,
-    borderRadius: BorderRadius.xl,
+    borderRadius: BorderRadius.lg,
     overflow: "hidden",
     marginBottom: Spacing.lg,
-    height: 180,
   },
-  heroImage: { width: "100%", height: "100%", resizeMode: "cover" },
+  heroImage: { width: "100%", height: "100%" },
   heroOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.15)",
+    backgroundColor: "rgba(0,0,0,0.35)",
   },
   locationBadge: {
     position: "absolute",
-    bottom: 14,
-    left: 14,
+    bottom: Spacing.md,
+    left: Spacing.md,
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    backgroundColor: "rgba(255,255,255,0.93)",
+    gap: Spacing.sm,
+    backgroundColor: "rgba(255,255,255,0.15)",
     borderRadius: BorderRadius.md,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
   },
   locationIcon: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: Colors.goldLight,
+    width: 28,
+    height: 28,
+    backgroundColor: Colors.white,
+    borderRadius: BorderRadius.xs,
     alignItems: "center",
     justifyContent: "center",
   },
   locationLabel: {
-    fontSize: 9,
-    color: Colors.textSecondary,
-    letterSpacing: 1.2,
+    fontSize: FontSizes.xs,
+    color: "rgba(255,255,255,0.7)",
     fontWeight: FontWeights.semibold,
   },
   locationName: {
-    fontSize: 13,
-    fontWeight: FontWeights.bold,
-    color: Colors.navy,
+    fontSize: FontSizes.sm,
+    color: Colors.white,
+    fontWeight: FontWeights.semibold,
   },
 
-  // Main tabs pill — exact match to PDF
+  // Tab switcher
   mainTabWrap: { paddingHorizontal: Spacing.lg, marginBottom: Spacing.lg },
   mainTabPill: {
     flexDirection: "row",
@@ -680,236 +478,188 @@ const s = StyleSheet.create({
   },
   mainTab: {
     flex: 1,
-    paddingVertical: 11,
-    borderRadius: BorderRadius.full,
+    paddingVertical: Spacing.sm,
     alignItems: "center",
+    borderRadius: BorderRadius.full,
   },
-  mainTabActive: {
-    backgroundColor: Colors.white,
-    ...Shadows.sm,
-  },
+  mainTabActive: { backgroundColor: Colors.white, ...Shadows.sm },
   mainTabText: {
-    fontSize: FontSizes.base,
-    fontWeight: FontWeights.semibold,
+    fontSize: FontSizes.sm,
     color: Colors.textSecondary,
+    fontWeight: FontWeights.medium,
   },
-  mainTabTextActive: { color: Colors.navy },
+  mainTabTextActive: {
+    color: Colors.textPrimary,
+    fontWeight: FontWeights.semibold,
+  },
 
   // Form
   form: { paddingHorizontal: Spacing.lg },
   formTitle: {
-    fontSize: FontSizes["3xl"],
-    fontWeight: FontWeights.extrabold,
-    color: Colors.navy,
-    marginBottom: 6,
+    fontSize: FontSizes.xl,
+    fontWeight: FontWeights.bold,
+    color: Colors.textPrimary,
+    marginBottom: Spacing.xs,
   },
   formSub: {
     fontSize: FontSizes.sm,
     color: Colors.textSecondary,
-    lineHeight: 20,
     marginBottom: Spacing.lg,
+    lineHeight: 20,
   },
 
-  // Phone input — matches PDF (single bordered row, prefix + divider + input)
-  phoneWrap: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 1.5,
+  label: {
+    fontSize: FontSizes.sm,
+    fontWeight: FontWeights.medium,
+    color: Colors.textPrimary,
+    marginBottom: Spacing.xs,
+  },
+  input: {
+    borderWidth: 1,
     borderColor: Colors.border,
-    borderRadius: BorderRadius.full,
+    borderRadius: BorderRadius.md,
     paddingHorizontal: Spacing.md,
-    height: 56,
+    paddingVertical: Spacing.sm,
+    fontSize: FontSizes.md,
+    color: Colors.textPrimary,
     backgroundColor: Colors.white,
     marginBottom: Spacing.md,
   },
+
+  phoneWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.md,
+    backgroundColor: Colors.white,
+    overflow: "hidden",
+  },
   phonePrefix: {
-    fontSize: FontSizes.sm,
-    fontWeight: FontWeights.semibold,
-    color: Colors.navy,
-    marginRight: 8,
+    paddingHorizontal: Spacing.md,
+    fontSize: FontSizes.md,
+    color: Colors.textSecondary,
   },
-  phoneDivider: {
-    width: 1,
-    height: 22,
-    backgroundColor: Colors.border,
-    marginRight: 8,
-  },
+  phoneDivider: { width: 1, height: "60%", backgroundColor: Colors.border },
   phoneInput: {
     flex: 1,
-    fontSize: FontSizes.base,
-    color: Colors.navy,
-    paddingVertical: 0,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    fontSize: FontSizes.md,
+    color: Colors.textPrimary,
   },
 
-  // OTP input
-  otpInput: {
-    borderWidth: 1.5,
+  passwordWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
     borderColor: Colors.border,
-    borderRadius: BorderRadius.lg,
-    height: 64,
-    fontSize: 28,
-    color: Colors.navy,
-    letterSpacing: 14,
-    marginBottom: Spacing.sm,
-    backgroundColor: Colors.gray100,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.md,
+    backgroundColor: Colors.white,
   },
-  resendRow: { alignSelf: "center", marginBottom: Spacing.lg },
-  resendText: {
-    fontSize: FontSizes.sm,
-    color: Colors.gold,
-    fontWeight: FontWeights.semibold,
-  },
-  resendDisabled: { color: Colors.textDisabled },
-  link: { color: Colors.gold, fontWeight: FontWeights.semibold },
+  eyeBtn: { paddingHorizontal: Spacing.md },
 
-  // Note card — blue-tinted, matches PDF
   noteCard: {
     flexDirection: "row",
-    gap: 12,
-    alignItems: "flex-start",
-    backgroundColor: "#EFF4FF",
-    borderRadius: BorderRadius.lg,
+    gap: Spacing.sm,
+    backgroundColor: Colors.primaryLight,
+    borderRadius: BorderRadius.md,
     padding: Spacing.md,
     marginBottom: Spacing.lg,
   },
   noteIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
     backgroundColor: Colors.white,
+    borderRadius: BorderRadius.sm,
     alignItems: "center",
     justifyContent: "center",
   },
   noteTitle: {
     fontSize: FontSizes.sm,
-    fontWeight: FontWeights.bold,
-    color: Colors.navy,
+    fontWeight: FontWeights.semibold,
+    color: Colors.textPrimary,
     marginBottom: 2,
   },
-  noteBody: { fontSize: 12, color: Colors.textSecondary, lineHeight: 17 },
-
-  // CTA button — full width, fully rounded, gold
-  cta: {
-    height: 56,
-    borderRadius: BorderRadius.full,
-    backgroundColor: Colors.gold,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: Spacing.sm,
-  },
-  ctaDisabled: { opacity: 0.6 },
-  ctaText: {
-    fontSize: FontSizes.md,
-    fontWeight: FontWeights.bold,
-    color: Colors.white,
-  },
-
-  // Guard link
-  guardLink: {
-    alignSelf: "center",
-    marginTop: Spacing.lg,
-    padding: Spacing.sm,
-  },
-  guardLinkText: {
-    fontSize: FontSizes.sm,
+  noteBody: {
+    fontSize: FontSizes.xs,
     color: Colors.textSecondary,
-    fontWeight: FontWeights.medium,
+    lineHeight: 16,
   },
-
-  // Back
-  backRow: { marginBottom: Spacing.md },
-  backText: {
-    fontSize: FontSizes.sm,
-    color: Colors.gold,
-    fontWeight: FontWeights.semibold,
-  },
-
-  // Generic input
-  label: {
-    fontSize: 12,
-    fontWeight: FontWeights.semibold,
-    color: Colors.textSecondary,
-    marginBottom: 6,
-    marginTop: Spacing.sm,
-    letterSpacing: 0.3,
-  },
-  input: {
-    borderWidth: 1.5,
-    borderColor: Colors.border,
-    borderRadius: BorderRadius.md,
-    paddingHorizontal: Spacing.md,
-    height: 52,
-    fontSize: FontSizes.base,
-    color: Colors.navy,
-    backgroundColor: Colors.white,
-  },
-  passwordWrap: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 1.5,
-    borderColor: Colors.border,
-    borderRadius: BorderRadius.md,
-    backgroundColor: Colors.white,
-    paddingRight: 8,
-  },
-  eyeBtn: { padding: 8 },
 
   error: {
     color: Colors.danger,
-    fontSize: 13,
-    marginBottom: Spacing.sm,
-    fontWeight: FontWeights.medium,
+    fontSize: FontSizes.sm,
+    marginBottom: Spacing.md,
   },
 
-  // Footer — matches PDF
-  footer: { alignItems: "center", marginTop: Spacing.xl, gap: 4 },
-  footerEmoji: { fontSize: 16 },
+  cta: {
+    backgroundColor: Colors.primary,
+    borderRadius: BorderRadius.md,
+    paddingVertical: Spacing.md,
+    alignItems: "center",
+    marginBottom: Spacing.md,
+    ...Shadows.md,
+  },
+  ctaDisabled: { opacity: 0.6 },
+  ctaText: {
+    color: Colors.white,
+    fontSize: FontSizes.md,
+    fontWeight: FontWeights.semibold,
+  },
+
+  switchPrompt: { alignItems: "center", marginBottom: Spacing.lg },
+  switchPromptText: { fontSize: FontSizes.sm, color: Colors.textSecondary },
+  switchPromptLink: { color: Colors.primary, fontWeight: FontWeights.semibold },
+
+  // DEV bar
+  devBar: {
+    margin: Spacing.lg,
+    padding: Spacing.md,
+    backgroundColor: "#fff3cd",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "#ffc107",
+  },
+  devLabel: {
+    fontSize: FontSizes.xs,
+    fontWeight: FontWeights.bold,
+    color: "#856404",
+    marginBottom: Spacing.sm,
+  },
+  devRow: { flexDirection: "row", gap: Spacing.sm },
+  devBtn: {
+    flex: 1,
+    backgroundColor: "#ffc107",
+    borderRadius: BorderRadius.sm,
+    paddingVertical: Spacing.xs,
+    alignItems: "center",
+  },
+  devBtnText: {
+    fontSize: FontSizes.xs,
+    fontWeight: FontWeights.semibold,
+    color: "#212529",
+  },
+
+  // Footer
+  footer: {
+    alignItems: "center",
+    paddingVertical: Spacing.xl,
+    gap: Spacing.xs,
+  },
+  footerEmoji: { fontSize: FontSizes.xl },
   footerText: {
-    fontSize: 10,
-    letterSpacing: 2.5,
+    fontSize: FontSizes.xs,
     color: Colors.textTertiary,
     fontWeight: FontWeights.semibold,
+    letterSpacing: 2,
   },
   footerLine: {
     width: 40,
-    height: 3,
-    backgroundColor: Colors.gold,
-    borderRadius: 2,
-    marginTop: 4,
-  },
-
-  devBar: {
-    marginHorizontal: Spacing.lg,
-    marginTop: Spacing.xl,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
-    paddingTop: Spacing.md,
-  },
-  devLabel: {
-    fontSize: 10,
-    fontWeight: FontWeights.bold,
-    color: Colors.textTertiary,
-    letterSpacing: 1.5,
-    marginBottom: Spacing.sm,
-    textAlign: "center",
-  },
-  devRow: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  devBtn: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: BorderRadius.md,
-    borderWidth: 1.5,
-    borderColor: Colors.border,
-    borderStyle: "dashed",
-    alignItems: "center",
-    backgroundColor: Colors.gray100,
-  },
-  devBtnText: {
-    fontSize: 11,
-    fontWeight: FontWeights.semibold,
-    color: Colors.textSecondary,
+    height: 2,
+    backgroundColor: Colors.border,
+    borderRadius: 1,
   },
 });

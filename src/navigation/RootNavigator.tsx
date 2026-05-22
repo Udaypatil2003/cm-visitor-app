@@ -1,28 +1,30 @@
-import React, { useEffect } from 'react';
-import { NavigationContainer } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import React, { useEffect } from "react";
+import { NavigationContainer } from "@react-navigation/native";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { View, ActivityIndicator, StyleSheet } from "react-native";
 
-import { useAuthStore } from '../store/authStore';
-import { Colors } from '../constants/theme';
+import { useAuthStore } from "../store/authStore";
+import { Colors } from "../constants/theme";
 
-// Navigators
-import { CitizenNavigator } from './CitizenNavigator';
-import { GuardNavigator } from './GuardNavigator';
+import { CitizenNavigator } from "./CitizenNavigator";
+import { GuardNavigator } from "./GuardNavigator";
+import SplashScreen from "../app/auth/SplashScreen";
+import LoginScreen from "../app/auth/LoginScreen";
+import CitizenOnboardingScreen from "../app/auth/CitizenOnboardingScreen";
+import { AuthStackParamList } from "./types";
 
-// Auth Screens — lazy imports keep bundle clean
-import SplashScreen from '../app/auth/SplashScreen';
-import WelcomeScreen from '../app/auth/WelcomeScreen';
-import CitizenOnboardingScreen from '../app/auth/CitizenOnboardingScreen';
-import LoginScreen from '../app/auth/LoginScreen';
+// ─── Typed root param list ────────────────────────────────────────────────────
 
-
-import { AuthStackParamList } from './types';
+type RootStackParamList = {
+  Boot: undefined;
+  Auth: undefined;
+  Onboarding: undefined;
+  Citizen: undefined;
+  Guard: undefined;
+};
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
-const RootStack = createNativeStackNavigator();
-
-// ─── Auth Stack ───────────────────────────────────────────────────────────────
+const RootStack = createNativeStackNavigator<RootStackParamList>();
 
 function AuthNavigator() {
   return (
@@ -32,20 +34,10 @@ function AuthNavigator() {
     >
       <AuthStack.Screen name="Splash" component={SplashScreen} />
       <AuthStack.Screen name="Login" component={LoginScreen} />
-      <AuthStack.Screen
-        name="CitizenOnboarding"
-        component={CitizenOnboardingScreen}
-        options={{
-          animation: 'slide_from_right',
-          gestureEnabled: false,
-        }}
-      />
+      {/* CitizenOnboarding removed — RootStack owns it now */}
     </AuthStack.Navigator>
   );
 }
-
-// ─── Boot Loader ──────────────────────────────────────────────────────────────
-// Shown while hydrateFromStorage() runs on first launch
 
 function BootLoader() {
   return (
@@ -55,10 +47,14 @@ function BootLoader() {
   );
 }
 
-// ─── Root Navigator ───────────────────────────────────────────────────────────
-
 export default function RootNavigator() {
-  const { isAuthenticated, isLoading, role, hydrateFromStorage } = useAuthStore();
+  const {
+    isAuthenticated,
+    isLoading,
+    role,
+    needsOnboarding,
+    hydrateFromStorage,
+  } = useAuthStore();
 
   useEffect(() => {
     hydrateFromStorage();
@@ -71,7 +67,9 @@ export default function RootNavigator() {
           <RootStack.Screen name="Boot" component={BootLoader} />
         ) : !isAuthenticated ? (
           <RootStack.Screen name="Auth" component={AuthNavigator} />
-        ) : role === 'citizen' ? (
+        ) : needsOnboarding ? (
+          <RootStack.Screen name="Onboarding" component={CitizenOnboardingScreen} />
+        ) : role === "citizen" ? (
           <RootStack.Screen name="Citizen" component={CitizenNavigator} />
         ) : (
           <RootStack.Screen name="Guard" component={GuardNavigator} />
@@ -84,8 +82,8 @@ export default function RootNavigator() {
 const styles = StyleSheet.create({
   bootLoader: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     backgroundColor: Colors.white,
   },
 });
