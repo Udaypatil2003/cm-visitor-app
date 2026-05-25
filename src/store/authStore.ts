@@ -65,8 +65,6 @@ setToken: async (token, role) => {
     const token = await SecureStore.getItemAsync(Config.TOKEN_STORAGE_KEY);
     const role = await SecureStore.getItemAsync(Config.ROLE_STORAGE_KEY) as UserRole | null;
 
-    console.log('HYDRATE — token:', token, 'role:', role);
-
     if (token && role) {
       set({ token, role, isAuthenticated: true });
     } else {

@@ -41,7 +41,7 @@ function formatDate(iso: string): string {
   });
 }
 
-const STATUS_CONFIG: Record <
+const STATUS_CONFIG: Record<
   AppointmentStatus,
   { label: string; bg: string; text: string }
 > = {
@@ -74,14 +74,15 @@ const badge = StyleSheet.create({
   },
 });
 
-// ── Appointment row card (no image) ───────────────────────────────────────────
+// ── Appointment row card ───────────────────────────────────────────────────────
 
 interface AppointmentCardProps {
   item: Appointment;
   onPress: () => void;
+  onViewPass: () => void;
 }
 
-function AppointmentCard({ item, onPress }: AppointmentCardProps) {
+function AppointmentCard({ item, onPress, onViewPass }: AppointmentCardProps) {
   return (
     <TouchableOpacity
       style={card.wrap}
@@ -111,9 +112,18 @@ function AppointmentCard({ item, onPress }: AppointmentCardProps) {
       ) : null}
 
       <View style={card.footer}>
-        <Text style={card.passLink}>
-          {item.status === 'APPROVED' ? 'View Pass ›' : 'View Details ›'}
-        </Text>
+        {/* "View Pass" navigates to AppointmentDetail */}
+        <TouchableOpacity
+          onPress={(e) => {
+            e.stopPropagation();
+            onViewPass();
+          }}
+          hitSlop={8}
+        >
+          <Text style={card.passLink}>
+            {item.status === 'APPROVED' ? 'View Pass ›' : 'View Details ›'}
+          </Text>
+        </TouchableOpacity>
       </View>
     </TouchableOpacity>
   );
@@ -125,22 +135,20 @@ const card = StyleSheet.create({
     borderRadius: BorderRadius.md,
     padding: Spacing[4],
     marginBottom: Spacing[3],
-    borderWidth: 1,
-    borderColor: Colors.border,
-    ...Shadows.sm,
+    ...Shadows.base,
   },
   top: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: Spacing[2],
+    gap: Spacing[2],
   },
   purpose: {
     flex: 1,
     fontSize: FontSizes.base,
     fontWeight: FontWeights.semibold,
     color: Colors.navy,
-    marginRight: Spacing[2],
   },
   meta: {
     flexDirection: 'row',
@@ -157,10 +165,10 @@ const card = StyleSheet.create({
     color: Colors.textSecondary,
   },
   rejection: {
-    fontSize: FontSizes.sm,
+    fontSize: FontSizes.xs,
     color: Colors.danger,
     marginTop: Spacing[1],
-    marginBottom: Spacing[1],
+    lineHeight: 16,
   },
   footer: {
     marginTop: Spacing[2],
@@ -173,9 +181,17 @@ const card = StyleSheet.create({
   },
 });
 
-// ── Section header ─────────────────────────────────────────────────────────────
+// ── Section header with optional "Show All" ────────────────────────────────────
 
-function SectionHeader({ title, count }: { title: string; count: number }) {
+function SectionHeader({
+  title,
+  count,
+  onShowAll,
+}: {
+  title: string;
+  count: number;
+  onShowAll?: () => void;
+}) {
   return (
     <View style={sec.row}>
       <Text style={sec.title}>{title}</Text>
@@ -183,6 +199,16 @@ function SectionHeader({ title, count }: { title: string; count: number }) {
         <View style={sec.pill}>
           <Text style={sec.pillText}>{count}</Text>
         </View>
+      )}
+      {/* Show All button — only rendered when handler is provided */}
+      {onShowAll && (
+        <TouchableOpacity
+          onPress={onShowAll}
+          hitSlop={8}
+          style={sec.showAllBtn}
+        >
+          <Text style={sec.showAllText}>Show All ›</Text>
+        </TouchableOpacity>
       )}
     </View>
   );
@@ -212,9 +238,16 @@ const sec = StyleSheet.create({
     fontWeight: FontWeights.bold,
     color: Colors.goldDark,
   },
+  // Pushes "Show All" to the far right
+  showAllBtn: {
+    marginLeft: 'auto',
+  },
+  showAllText: {
+    fontSize: FontSizes.sm,
+    fontWeight: FontWeights.semibold,
+    color: Colors.gold,
+  },
 });
-
-// ── Empty state ────────────────────────────────────────────────────────────────
 
 function EmptyState({ label }: { label: string }) {
   return (
@@ -226,7 +259,7 @@ function EmptyState({ label }: { label: string }) {
 
 const empty = StyleSheet.create({
   wrap: {
-    paddingVertical: Spacing[6],
+    paddingVertical: Spacing[5],
     alignItems: 'center',
   },
   text: {
@@ -258,7 +291,7 @@ export default function CitizenHomeScreen() {
 
   const firstName = citizenUser?.fullName?.split(' ')[0] ?? 'there';
 
-  // ── Fetch ────────────────────────────────────────────────────────────────────
+  // ── Fetch ─────────────────────────────────────────────────────────────────
 
   async function fetchAppointments(silent = false) {
     if (!silent) setLoading(true);
@@ -284,19 +317,28 @@ export default function CitizenHomeScreen() {
     setRefreshing(false);
   }
 
-  // ── Derived ──────────────────────────────────────────────────────────────────
+  // ── Derived — cap at 3 each ───────────────────────────────────────────────
 
-  const upcoming = getUpcoming();
-  const past = getPast();
-  const nextApproved = getNextApproved();
+  const allUpcoming    = getUpcoming();
+  const allPast        = getPast();
+  const nextApproved   = getNextApproved();
 
-  // ── Nav helper ───────────────────────────────────────────────────────────────
+  // Only the 3 most recent of each bucket shown on home
+  const recentUpcoming = allUpcoming.slice(0, 3);
+  const recentPast     = allPast.slice(0, 3);
+
+  // ── Navigation helpers ────────────────────────────────────────────────────
 
   function goToDetail(appointmentId: string) {
     navigation.navigate('AppointmentDetail', { appointmentId });
   }
 
-  // ── Render ───────────────────────────────────────────────────────────────────
+  function goToMyAppointments() {
+    // Navigate to the MyAppointments tab inside CitizenTabs
+    navigation.navigate('CitizenTabs', { screen: 'MyAppointments' });
+  }
+
+  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <View style={styles.root}>
@@ -361,31 +403,43 @@ export default function CitizenHomeScreen() {
           </View>
         ) : null}
 
-        {/* Upcoming appointments */}
+        {/* Appointment lists */}
         {!isLoading && !error && (
           <>
-            <SectionHeader title="Upcoming" count={upcoming.length} />
-            {upcoming.length === 0 ? (
+            {/* Upcoming — "Show All" only when there are more than 3 */}
+            <SectionHeader
+              title="Upcoming"
+              count={allUpcoming.length}
+              onShowAll={allUpcoming.length > 3 ? goToMyAppointments : undefined}
+            />
+            {recentUpcoming.length === 0 ? (
               <EmptyState label="No upcoming appointments" />
             ) : (
-              upcoming.map((a) => (
+              recentUpcoming.map((a) => (
                 <AppointmentCard
                   key={a.id}
                   item={a}
                   onPress={() => goToDetail(a.id)}
+                  onViewPass={() => goToDetail(a.id)}
                 />
               ))
             )}
 
-            <SectionHeader title="Previous" count={past.length} />
-            {past.length === 0 ? (
+            {/* Previous — "Show All" only when there are more than 3 */}
+            <SectionHeader
+              title="Previous"
+              count={allPast.length}
+              onShowAll={allPast.length > 3 ? goToMyAppointments : undefined}
+            />
+            {recentPast.length === 0 ? (
               <EmptyState label="No past appointments" />
             ) : (
-              past.map((a) => (
+              recentPast.map((a) => (
                 <AppointmentCard
                   key={a.id}
                   item={a}
                   onPress={() => goToDetail(a.id)}
+                  onViewPass={() => goToDetail(a.id)}
                 />
               ))
             )}
@@ -401,74 +455,70 @@ export default function CitizenHomeScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.navyLight,
   },
   scroll: {
     paddingHorizontal: Layout.screenPaddingH,
-    paddingTop: Spacing[5],
+    paddingTop: Spacing[4],
   },
   greeting: {
     fontSize: FontSizes.xxl,
     fontWeight: FontWeights.bold,
     color: Colors.navy,
-    marginBottom: Spacing[4],
+    marginBottom: Spacing[3],
   },
 
-  // ── Pass banner ──────────────────────────────────────────────────────────────
+  // ── Pass banner ──
   passBanner: {
     backgroundColor: Colors.navy,
     borderRadius: BorderRadius.md,
     padding: Spacing[4],
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     marginBottom: Spacing[2],
     ...Shadows.md,
   },
-  passBannerLeft: {
-    flex: 1,
-    marginRight: Spacing[3],
-  },
+  passBannerLeft: { flex: 1, gap: 4 },
   passBannerLabel: {
     fontSize: FontSizes.xs,
     fontWeight: FontWeights.bold,
     color: Colors.gold,
     letterSpacing: 1,
-    marginBottom: 2,
   },
   passBannerDate: {
-    fontSize: FontSizes.base,
+    fontSize: FontSizes.lg,
     fontWeight: FontWeights.bold,
     color: Colors.white,
-    marginBottom: 2,
   },
   passBannerPurpose: {
     fontSize: FontSizes.sm,
     color: Colors.gray400,
   },
-  passBannerRight: {},
+  passBannerRight: {
+    paddingLeft: Spacing[3],
+  },
   passBannerCta: {
     fontSize: FontSizes.sm,
     fontWeight: FontWeights.bold,
     color: Colors.gold,
   },
 
-  // ── Loader / error ───────────────────────────────────────────────────────────
+  // ── Loading / error ──
   loader: {
-    marginTop: Spacing[10],
+    marginTop: Spacing[8],
   },
   errorBox: {
-    marginTop: Spacing[6],
+    marginTop: Spacing[5],
     alignItems: 'center',
     gap: Spacing[2],
   },
   errorText: {
-    fontSize: FontSizes.sm,
+    fontSize: FontSizes.base,
     color: Colors.danger,
     textAlign: 'center',
   },
   retryText: {
-    fontSize: FontSizes.sm,
+    fontSize: FontSizes.base,
     fontWeight: FontWeights.semibold,
     color: Colors.gold,
   },

@@ -266,6 +266,7 @@ export function CitizenNavigator() {
         options={{
           presentation: 'modal',
           animation: 'slide_from_bottom',
+          headerShown: false,
         }}
       />
       <Stack.Screen
@@ -275,6 +276,7 @@ export function CitizenNavigator() {
           presentation: 'modal',
           animation: 'slide_from_bottom',
           gestureEnabled: false,
+          headerShown: false,
         }}
       />
 
@@ -282,7 +284,7 @@ export function CitizenNavigator() {
       <Stack.Screen
         name="AppointmentDetail"
         component={AppointmentDetailScreen}
-        options={{ animation: 'slide_from_right' }}
+        options={{ animation: 'slide_from_right', headerShown: false }}
       />
       <Stack.Screen
         name="EditProfile"
