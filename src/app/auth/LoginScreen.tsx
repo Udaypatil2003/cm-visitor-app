@@ -1,29 +1,16 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  SafeAreaView,
-  StatusBar,
-  TouchableOpacity,
-  TextInput,
-  Image,
-  ScrollView,
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
+  View, Text, StyleSheet, SafeAreaView, StatusBar,
+  TouchableOpacity, TextInput, Image, ScrollView,
+  ActivityIndicator, KeyboardAvoidingView, Platform,
 } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { AuthStackParamList } from "../../navigation/types";
 import { useAuthStore } from "../../store/authStore";
 import authService from "../../services/authService";
 import {
-  Colors,
-  FontSizes,
-  FontWeights,
-  Spacing,
-  BorderRadius,
-  Shadows,
+  Colors, FontSizes, FontWeights,
+  Spacing, BorderRadius, Shadows,
 } from "../../constants/theme";
 
 type Props = NativeStackScreenProps<AuthStackParamList, "Login">;
@@ -32,12 +19,10 @@ type ActiveForm = "login" | "register";
 export default function LoginScreen({ navigation }: Props) {
   const [activeForm, setActiveForm] = useState<ActiveForm>("login");
 
-  // Login state
-  const [loginUsername, setLoginUsername] = useState("");
-  const [loginPassword, setLoginPassword] = useState("");
-  const [loginPasswordVisible, setLoginPasswordVisible] = useState(false);
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [passwordVisible, setPasswordVisible] = useState(false);
 
-  // Register state
   const [regUsername, setRegUsername] = useState("");
   const [regMobile, setRegMobile] = useState("");
   const [regPassword, setRegPassword] = useState("");
@@ -46,41 +31,44 @@ export default function LoginScreen({ navigation }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const { setCitizenUser, setToken,setNeedsOnboarding  } = useAuthStore();
+  const { setCitizenUser, setToken, setNeedsOnboarding, setGuardUser } = useAuthStore();
 
   const clearError = () => setError("");
+  const switchForm = (form: ActiveForm) => { setActiveForm(form); clearError(); };
 
-  const switchForm = (form: ActiveForm) => {
-    setActiveForm(form);
-    setError("");
-  };
-
-  // ── Citizen Login ─────────────────────────────────────────────────────────
+  // ── Smart Login — tries citizen first, falls back to guard ────────────────
   const handleLogin = async () => {
-    if (!loginUsername.trim()) {
-      setError("Enter your username");
-      return;
-    }
-    if (!loginPassword.trim()) {
-      setError("Enter your password");
-      return;
-    }
+    if (!username.trim()) { setError("Enter your username"); return; }
+    if (!password.trim()) { setError("Enter your password"); return; }
     clearError();
     setLoading(true);
     try {
-      const res = await authService.loginCitizen({
-        username: loginUsername.trim(),
-        password: loginPassword,
-      });
-      if (res.success) {
-        setToken(res.data.token, "citizen");
-        if (res.data.isNewUser) {
-          setNeedsOnboarding(true);
-        } else {
-          setCitizenUser(res.data.user);
+      // Try citizen login first
+      try {
+        const res = await authService.loginCitizen({
+          username: username.trim(),
+          password,
+        });
+        if (res.success) {
+          await setToken(res.data.token, "citizen");
+          if (res.data.isNewUser) {
+            setNeedsOnboarding(true);
+          } else {
+            setCitizenUser(res.data.user);
+          }
+          return;
         }
+      } catch {
+        // Citizen login failed — try guard
+      }
+
+      // Try guard login
+      const guardRes = await authService.guardLogin(username.trim(), password);
+      if (guardRes.success) {
+        await setToken(guardRes.data.token, "guard");
+        setGuardUser(guardRes.data.guard);
       } else {
-        setError(res.message || "Login failed");
+        setError("Invalid username or password");
       }
     } catch (err: any) {
       setError(err?.message || "Login failed. Please try again.");
@@ -89,20 +77,11 @@ export default function LoginScreen({ navigation }: Props) {
     }
   };
 
-  // ── Citizen Register ──────────────────────────────────────────────────────
+  // ── Register (citizen only) ───────────────────────────────────────────────
   const handleRegister = async () => {
-    if (!regUsername.trim()) {
-      setError("Enter a username");
-      return;
-    }
-    if (regMobile.length !== 10) {
-      setError("Enter a valid 10-digit mobile number");
-      return;
-    }
-    if (regPassword.length < 6) {
-      setError("Password must be at least 6 characters");
-      return;
-    }
+    if (!regUsername.trim()) { setError("Enter a username"); return; }
+    if (regMobile.length !== 10) { setError("Enter a valid 10-digit mobile number"); return; }
+    if (regPassword.length < 6) { setError("Password must be at least 6 characters"); return; }
     clearError();
     setLoading(true);
     try {
@@ -112,7 +91,7 @@ export default function LoginScreen({ navigation }: Props) {
         password: regPassword,
       });
       if (res.success) {
-        setToken(res.data.token, "citizen");
+        await setToken(res.data.token, "citizen");
         setNeedsOnboarding(true);
       } else {
         setError(res.message || "Registration failed");
@@ -150,9 +129,7 @@ export default function LoginScreen({ navigation }: Props) {
           {/* ── Hero Image ── */}
           <View style={s.heroWrap}>
             <Image
-              source={{
-                uri: "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&q=80",
-              }}
+              source={{ uri: "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&q=80" }}
               style={s.heroImage}
             />
             <View style={s.heroOverlay} />
@@ -174,28 +151,15 @@ export default function LoginScreen({ navigation }: Props) {
                 style={[s.mainTab, activeForm === "login" && s.mainTabActive]}
                 onPress={() => switchForm("login")}
               >
-                <Text
-                  style={[
-                    s.mainTabText,
-                    activeForm === "login" && s.mainTabTextActive,
-                  ]}
-                >
+                <Text style={[s.mainTabText, activeForm === "login" && s.mainTabTextActive]}>
                   Login
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[
-                  s.mainTab,
-                  activeForm === "register" && s.mainTabActive,
-                ]}
+                style={[s.mainTab, activeForm === "register" && s.mainTabActive]}
                 onPress={() => switchForm("register")}
               >
-                <Text
-                  style={[
-                    s.mainTabText,
-                    activeForm === "register" && s.mainTabTextActive,
-                  ]}
-                >
+                <Text style={[s.mainTabText, activeForm === "register" && s.mainTabTextActive]}>
                   Register
                 </Text>
               </TouchableOpacity>
@@ -206,9 +170,7 @@ export default function LoginScreen({ navigation }: Props) {
           {activeForm === "login" && (
             <View style={s.form}>
               <Text style={s.formTitle}>Welcome Back</Text>
-              <Text style={s.formSub}>
-                Sign in with your username and password.
-              </Text>
+              <Text style={s.formSub}>Sign in with your username and password.</Text>
 
               <Text style={s.label}>Username</Text>
               <TextInput
@@ -217,34 +179,25 @@ export default function LoginScreen({ navigation }: Props) {
                 placeholderTextColor={Colors.placeholder}
                 autoCapitalize="none"
                 autoCorrect={false}
-                value={loginUsername}
-                onChangeText={(t) => {
-                  setLoginUsername(t);
-                  clearError();
-                }}
+                value={username}
+                onChangeText={(t) => { setUsername(t); clearError(); }}
               />
 
               <Text style={s.label}>Password</Text>
               <View style={s.passwordWrap}>
                 <TextInput
-                  style={[
-                    s.input,
-                    { flex: 1, borderWidth: 0, marginBottom: 0 },
-                  ]}
+                  style={[s.input, { flex: 1, borderWidth: 0, marginBottom: 0 }]}
                   placeholder="••••••••"
                   placeholderTextColor={Colors.placeholder}
-                  secureTextEntry={!loginPasswordVisible}
-                  value={loginPassword}
-                  onChangeText={(t) => {
-                    setLoginPassword(t);
-                    clearError();
-                  }}
+                  secureTextEntry={!passwordVisible}
+                  value={password}
+                  onChangeText={(t) => { setPassword(t); clearError(); }}
                 />
                 <TouchableOpacity
-                  onPress={() => setLoginPasswordVisible((v) => !v)}
+                  onPress={() => setPasswordVisible((v) => !v)}
                   style={s.eyeBtn}
                 >
-                  <Text>{loginPasswordVisible ? "🙈" : "👁"}</Text>
+                  <Text>{passwordVisible ? "🙈" : "👁"}</Text>
                 </TouchableOpacity>
               </View>
 
@@ -256,20 +209,15 @@ export default function LoginScreen({ navigation }: Props) {
                 disabled={loading}
                 activeOpacity={0.82}
               >
-                {loading ? (
-                  <ActivityIndicator color={Colors.white} />
-                ) : (
-                  <Text style={s.ctaText}>Login →</Text>
-                )}
+                {loading
+                  ? <ActivityIndicator color={Colors.white} />
+                  : <Text style={s.ctaText}>Login →</Text>
+                }
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={s.switchPrompt}
-                onPress={() => switchForm("register")}
-              >
+              <TouchableOpacity style={s.switchPrompt} onPress={() => switchForm("register")}>
                 <Text style={s.switchPromptText}>
-                  New here?{" "}
-                  <Text style={s.switchPromptLink}>Create an account</Text>
+                  New here? <Text style={s.switchPromptLink}>Create an account</Text>
                 </Text>
               </TouchableOpacity>
             </View>
@@ -291,10 +239,7 @@ export default function LoginScreen({ navigation }: Props) {
                 autoCapitalize="none"
                 autoCorrect={false}
                 value={regUsername}
-                onChangeText={(t) => {
-                  setRegUsername(t);
-                  clearError();
-                }}
+                onChangeText={(t) => { setRegUsername(t); clearError(); }}
               />
 
               <Text style={s.label}>Mobile Number</Text>
@@ -308,28 +253,19 @@ export default function LoginScreen({ navigation }: Props) {
                   keyboardType="phone-pad"
                   maxLength={10}
                   value={regMobile}
-                  onChangeText={(t) => {
-                    setRegMobile(t.replace(/\D/g, ""));
-                    clearError();
-                  }}
+                  onChangeText={(t) => { setRegMobile(t.replace(/\D/g, "")); clearError(); }}
                 />
               </View>
 
               <Text style={s.label}>Password</Text>
               <View style={s.passwordWrap}>
                 <TextInput
-                  style={[
-                    s.input,
-                    { flex: 1, borderWidth: 0, marginBottom: 0 },
-                  ]}
+                  style={[s.input, { flex: 1, borderWidth: 0, marginBottom: 0 }]}
                   placeholder="Min. 6 characters"
                   placeholderTextColor={Colors.placeholder}
                   secureTextEntry={!regPasswordVisible}
                   value={regPassword}
-                  onChangeText={(t) => {
-                    setRegPassword(t);
-                    clearError();
-                  }}
+                  onChangeText={(t) => { setRegPassword(t); clearError(); }}
                 />
                 <TouchableOpacity
                   onPress={() => setRegPasswordVisible((v) => !v)}
@@ -346,8 +282,7 @@ export default function LoginScreen({ navigation }: Props) {
                 <View style={{ flex: 1 }}>
                   <Text style={s.noteTitle}>What happens next?</Text>
                   <Text style={s.noteBody}>
-                    After registering, complete your Aadhaar-linked profile for
-                    gate access.
+                    After registering, complete your Aadhaar-linked profile for gate access.
                   </Text>
                 </View>
               </View>
@@ -360,20 +295,15 @@ export default function LoginScreen({ navigation }: Props) {
                 disabled={loading}
                 activeOpacity={0.82}
               >
-                {loading ? (
-                  <ActivityIndicator color={Colors.white} />
-                ) : (
-                  <Text style={s.ctaText}>Register & Continue →</Text>
-                )}
+                {loading
+                  ? <ActivityIndicator color={Colors.white} />
+                  : <Text style={s.ctaText}>Register & Continue →</Text>
+                }
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={s.switchPrompt}
-                onPress={() => switchForm("login")}
-              >
+              <TouchableOpacity style={s.switchPrompt} onPress={() => switchForm("login")}>
                 <Text style={s.switchPromptText}>
-                  Already registered?{" "}
-                  <Text style={s.switchPromptLink}>Login</Text>
+                  Already registered? <Text style={s.switchPromptLink}>Login</Text>
                 </Text>
               </TouchableOpacity>
             </View>
@@ -391,275 +321,97 @@ export default function LoginScreen({ navigation }: Props) {
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-// Keep all values from theme — no hardcoded numbers below
-
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.white },
   scroll: { paddingBottom: Spacing.xxl },
-
-  // Header
   header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md,
   },
   headerLeft: { flexDirection: "row", alignItems: "center", gap: Spacing.sm },
   logoBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: BorderRadius.sm,
-    backgroundColor: Colors.primaryLight,
-    alignItems: "center",
-    justifyContent: "center",
+    width: 36, height: 36, borderRadius: BorderRadius.sm,
+    backgroundColor: Colors.primaryLight, alignItems: "center", justifyContent: "center",
   },
   logoEmoji: { fontSize: FontSizes.lg },
-  headerTitle: {
-    fontSize: FontSizes.md,
-    fontWeight: FontWeights.semibold,
-    color: Colors.textPrimary,
-  },
+  headerTitle: { fontSize: FontSizes.md, fontWeight: FontWeights.semibold, color: Colors.textPrimary },
   headerPin: { fontSize: FontSizes.lg },
-
-  // Hero
   heroWrap: {
-    position: "relative",
-    height: 200,
-    marginHorizontal: Spacing.lg,
-    borderRadius: BorderRadius.lg,
-    overflow: "hidden",
-    marginBottom: Spacing.lg,
+    position: "relative", height: 200, marginHorizontal: Spacing.lg,
+    borderRadius: BorderRadius.lg, overflow: "hidden", marginBottom: Spacing.lg,
   },
   heroImage: { width: "100%", height: "100%" },
-  heroOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.35)",
-  },
+  heroOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.35)" },
   locationBadge: {
-    position: "absolute",
-    bottom: Spacing.md,
-    left: Spacing.md,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-    backgroundColor: "rgba(255,255,255,0.15)",
-    borderRadius: BorderRadius.md,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
+    position: "absolute", bottom: Spacing.md, left: Spacing.md,
+    flexDirection: "row", alignItems: "center", gap: Spacing.sm,
+    backgroundColor: "rgba(255,255,255,0.15)", borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.sm, paddingVertical: Spacing.xs,
   },
   locationIcon: {
-    width: 28,
-    height: 28,
-    backgroundColor: Colors.white,
-    borderRadius: BorderRadius.xs,
-    alignItems: "center",
-    justifyContent: "center",
+    width: 28, height: 28, backgroundColor: Colors.white,
+    borderRadius: BorderRadius.xs, alignItems: "center", justifyContent: "center",
   },
-  locationLabel: {
-    fontSize: FontSizes.xs,
-    color: "rgba(255,255,255,0.7)",
-    fontWeight: FontWeights.semibold,
-  },
-  locationName: {
-    fontSize: FontSizes.sm,
-    color: Colors.white,
-    fontWeight: FontWeights.semibold,
-  },
-
-  // Tab switcher
+  locationLabel: { fontSize: FontSizes.xs, color: "rgba(255,255,255,0.7)", fontWeight: FontWeights.semibold },
+  locationName: { fontSize: FontSizes.sm, color: Colors.white, fontWeight: FontWeights.semibold },
   mainTabWrap: { paddingHorizontal: Spacing.lg, marginBottom: Spacing.lg },
   mainTabPill: {
-    flexDirection: "row",
-    backgroundColor: Colors.surfaceSecondary,
-    borderRadius: BorderRadius.full,
-    padding: 4,
+    flexDirection: "row", backgroundColor: Colors.surfaceSecondary,
+    borderRadius: BorderRadius.full, padding: 4,
   },
-  mainTab: {
-    flex: 1,
-    paddingVertical: Spacing.sm,
-    alignItems: "center",
-    borderRadius: BorderRadius.full,
-  },
+  mainTab: { flex: 1, paddingVertical: Spacing.sm, alignItems: "center", borderRadius: BorderRadius.full },
   mainTabActive: { backgroundColor: Colors.white, ...Shadows.sm },
-  mainTabText: {
-    fontSize: FontSizes.sm,
-    color: Colors.textSecondary,
-    fontWeight: FontWeights.medium,
-  },
-  mainTabTextActive: {
-    color: Colors.textPrimary,
-    fontWeight: FontWeights.semibold,
-  },
-
-  // Form
+  mainTabText: { fontSize: FontSizes.sm, color: Colors.textSecondary, fontWeight: FontWeights.medium },
+  mainTabTextActive: { color: Colors.textPrimary, fontWeight: FontWeights.semibold },
   form: { paddingHorizontal: Spacing.lg },
-  formTitle: {
-    fontSize: FontSizes.xl,
-    fontWeight: FontWeights.bold,
-    color: Colors.textPrimary,
-    marginBottom: Spacing.xs,
-  },
-  formSub: {
-    fontSize: FontSizes.sm,
-    color: Colors.textSecondary,
-    marginBottom: Spacing.lg,
-    lineHeight: 20,
-  },
-
-  label: {
-    fontSize: FontSizes.sm,
-    fontWeight: FontWeights.medium,
-    color: Colors.textPrimary,
-    marginBottom: Spacing.xs,
-  },
+  formTitle: { fontSize: FontSizes.xl, fontWeight: FontWeights.bold, color: Colors.textPrimary, marginBottom: Spacing.xs },
+  formSub: { fontSize: FontSizes.sm, color: Colors.textSecondary, marginBottom: Spacing.lg, lineHeight: 20 },
+  label: { fontSize: FontSizes.sm, fontWeight: FontWeights.medium, color: Colors.textPrimary, marginBottom: Spacing.xs },
   input: {
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: BorderRadius.md,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    fontSize: FontSizes.md,
-    color: Colors.textPrimary,
-    backgroundColor: Colors.white,
-    marginBottom: Spacing.md,
+    borderWidth: 1, borderColor: Colors.border, borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm,
+    fontSize: FontSizes.md, color: Colors.textPrimary,
+    backgroundColor: Colors.white, marginBottom: Spacing.md,
   },
-
   phoneWrap: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: BorderRadius.md,
-    marginBottom: Spacing.md,
-    backgroundColor: Colors.white,
-    overflow: "hidden",
+    flexDirection: "row", alignItems: "center", borderWidth: 1,
+    borderColor: Colors.border, borderRadius: BorderRadius.md,
+    marginBottom: Spacing.md, backgroundColor: Colors.white, overflow: "hidden",
   },
-  phonePrefix: {
-    paddingHorizontal: Spacing.md,
-    fontSize: FontSizes.md,
-    color: Colors.textSecondary,
-  },
+  phonePrefix: { paddingHorizontal: Spacing.md, fontSize: FontSizes.md, color: Colors.textSecondary },
   phoneDivider: { width: 1, height: "60%", backgroundColor: Colors.border },
   phoneInput: {
-    flex: 1,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    fontSize: FontSizes.md,
-    color: Colors.textPrimary,
+    flex: 1, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm,
+    fontSize: FontSizes.md, color: Colors.textPrimary,
   },
-
   passwordWrap: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: BorderRadius.md,
-    marginBottom: Spacing.md,
-    backgroundColor: Colors.white,
+    flexDirection: "row", alignItems: "center", borderWidth: 1,
+    borderColor: Colors.border, borderRadius: BorderRadius.md,
+    marginBottom: Spacing.md, backgroundColor: Colors.white,
   },
   eyeBtn: { paddingHorizontal: Spacing.md },
-
   noteCard: {
-    flexDirection: "row",
-    gap: Spacing.sm,
-    backgroundColor: Colors.primaryLight,
-    borderRadius: BorderRadius.md,
-    padding: Spacing.md,
-    marginBottom: Spacing.lg,
+    flexDirection: "row", gap: Spacing.sm, backgroundColor: Colors.primaryLight,
+    borderRadius: BorderRadius.md, padding: Spacing.md, marginBottom: Spacing.lg,
   },
   noteIconWrap: {
-    width: 32,
-    height: 32,
-    backgroundColor: Colors.white,
-    borderRadius: BorderRadius.sm,
-    alignItems: "center",
-    justifyContent: "center",
+    width: 32, height: 32, backgroundColor: Colors.white,
+    borderRadius: BorderRadius.sm, alignItems: "center", justifyContent: "center",
   },
-  noteTitle: {
-    fontSize: FontSizes.sm,
-    fontWeight: FontWeights.semibold,
-    color: Colors.textPrimary,
-    marginBottom: 2,
-  },
-  noteBody: {
-    fontSize: FontSizes.xs,
-    color: Colors.textSecondary,
-    lineHeight: 16,
-  },
-
-  error: {
-    color: Colors.danger,
-    fontSize: FontSizes.sm,
-    marginBottom: Spacing.md,
-  },
-
+  noteTitle: { fontSize: FontSizes.sm, fontWeight: FontWeights.semibold, color: Colors.textPrimary, marginBottom: 2 },
+  noteBody: { fontSize: FontSizes.xs, color: Colors.textSecondary, lineHeight: 16 },
+  error: { color: Colors.danger, fontSize: FontSizes.sm, marginBottom: Spacing.md },
   cta: {
-    backgroundColor: Colors.primary,
-    borderRadius: BorderRadius.md,
-    paddingVertical: Spacing.md,
-    alignItems: "center",
-    marginBottom: Spacing.md,
-    ...Shadows.md,
+    backgroundColor: Colors.primary, borderRadius: BorderRadius.md,
+    paddingVertical: Spacing.md, alignItems: "center", marginBottom: Spacing.md, ...Shadows.md,
   },
   ctaDisabled: { opacity: 0.6 },
-  ctaText: {
-    color: Colors.white,
-    fontSize: FontSizes.md,
-    fontWeight: FontWeights.semibold,
-  },
-
+  ctaText: { color: Colors.white, fontSize: FontSizes.md, fontWeight: FontWeights.semibold },
   switchPrompt: { alignItems: "center", marginBottom: Spacing.lg },
   switchPromptText: { fontSize: FontSizes.sm, color: Colors.textSecondary },
   switchPromptLink: { color: Colors.primary, fontWeight: FontWeights.semibold },
-
-  // DEV bar
-  devBar: {
-    margin: Spacing.lg,
-    padding: Spacing.md,
-    backgroundColor: "#fff3cd",
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-    borderColor: "#ffc107",
-  },
-  devLabel: {
-    fontSize: FontSizes.xs,
-    fontWeight: FontWeights.bold,
-    color: "#856404",
-    marginBottom: Spacing.sm,
-  },
-  devRow: { flexDirection: "row", gap: Spacing.sm },
-  devBtn: {
-    flex: 1,
-    backgroundColor: "#ffc107",
-    borderRadius: BorderRadius.sm,
-    paddingVertical: Spacing.xs,
-    alignItems: "center",
-  },
-  devBtnText: {
-    fontSize: FontSizes.xs,
-    fontWeight: FontWeights.semibold,
-    color: "#212529",
-  },
-
-  // Footer
-  footer: {
-    alignItems: "center",
-    paddingVertical: Spacing.xl,
-    gap: Spacing.xs,
-  },
+  footer: { alignItems: "center", paddingVertical: Spacing.xl, gap: Spacing.xs },
   footerEmoji: { fontSize: FontSizes.xl },
-  footerText: {
-    fontSize: FontSizes.xs,
-    color: Colors.textTertiary,
-    fontWeight: FontWeights.semibold,
-    letterSpacing: 2,
-  },
-  footerLine: {
-    width: 40,
-    height: 2,
-    backgroundColor: Colors.border,
-    borderRadius: 1,
-  },
+  footerText: { fontSize: FontSizes.xs, color: Colors.textTertiary, fontWeight: FontWeights.semibold, letterSpacing: 2 },
+  footerLine: { width: 40, height: 2, backgroundColor: Colors.border, borderRadius: 1 },
 });

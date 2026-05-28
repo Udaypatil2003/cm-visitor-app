@@ -1,5 +1,4 @@
-
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -9,10 +8,10 @@ import {
   Text,
   TouchableOpacity,
   View,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import {
   Colors,
@@ -22,54 +21,78 @@ import {
   BorderRadius,
   Shadows,
   Layout,
-} from '../../constants/theme';
-import appointmentService from '../../services/appointmentService';
-import { useAppointmentStore } from '../../store/appointmentStore';
-import type { Appointment, AppointmentStatus } from '../../types/appointment.types';
-import type { CitizenStackParamList } from '../../navigation/types';
+} from "../../constants/theme";
+import appointmentService from "../../services/appointmentService";
+import { useAppointmentStore } from "../../store/appointmentStore";
+import type {
+  Appointment,
+  AppointmentStatus,
+} from "../../types/appointment.types";
+import type { CitizenStackParamList } from "../../navigation/types";
 
 type Nav = NativeStackNavigationProp<CitizenStackParamList>;
-type Tab    = 'upcoming' | 'past';
-type Filter = 'ALL' | AppointmentStatus;
+type Tab = "upcoming" | "past";
+type Filter = "ALL" | AppointmentStatus;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function formatDate(iso: string | null): string {
-  if (!iso) return '—';
+  if (!iso) return "—";
   const d = new Date(iso);
-  if (isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  if (isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 }
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
-const STATUS_CONFIG: Record<AppointmentStatus, {
-  label: string; bg: string; color: string;
-  chipBg: string; chipActiveBg: string; chipActiveText: string; chipBorder: string;
-}> = {
+const STATUS_CONFIG: Record<
+  AppointmentStatus,
+  {
+    label: string;
+    bg: string;
+    color: string;
+    chipBg: string;
+    chipActiveBg: string;
+    chipActiveText: string;
+    chipBorder: string;
+  }
+> = {
   APPROVED: {
-    label: 'Approved',
-    bg: Colors.successLight, color: Colors.success,
-    chipBg: Colors.white, chipActiveBg: Colors.success,
-    chipActiveText: Colors.white, chipBorder: Colors.success,
+    label: "Approved",
+    bg: Colors.successLight,
+    color: Colors.success,
+    chipBg: Colors.white,
+    chipActiveBg: Colors.success,
+    chipActiveText: Colors.white,
+    chipBorder: Colors.success,
   },
   PENDING: {
-    label: 'Pending',
-    bg: Colors.warningLight, color: Colors.warning,
-    chipBg: Colors.white, chipActiveBg: Colors.warning,
-    chipActiveText: Colors.white, chipBorder: Colors.warning,
+    label: "Pending",
+    bg: Colors.warningLight,
+    color: Colors.warning,
+    chipBg: Colors.white,
+    chipActiveBg: Colors.warning,
+    chipActiveText: Colors.white,
+    chipBorder: Colors.warning,
   },
   REJECTED: {
-    label: 'Rejected',
-    bg: Colors.dangerLight, color: Colors.danger,
-    chipBg: Colors.white, chipActiveBg: Colors.danger,
-    chipActiveText: Colors.white, chipBorder: Colors.danger,
+    label: "Rejected",
+    bg: Colors.dangerLight,
+    color: Colors.danger,
+    chipBg: Colors.white,
+    chipActiveBg: Colors.danger,
+    chipActiveText: Colors.white,
+    chipBorder: Colors.danger,
   },
 };
 
 // Per-filter count helper
 function countByStatus(list: Appointment[], filter: Filter): number {
-  if (filter === 'ALL') return list.length;
+  if (filter === "ALL") return list.length;
   return list.filter((a) => a.status === filter).length;
 }
 
@@ -87,10 +110,10 @@ function StatusBadge({ status }: { status: AppointmentStatus }) {
 // ─── Filter chips ─────────────────────────────────────────────────────────────
 
 const FILTERS: { key: Filter; label: string; icon: string }[] = [
-  { key: 'ALL',      label: 'All',      icon: '📋' },
-  { key: 'APPROVED', label: 'Approved', icon: '✅' },
-  { key: 'PENDING',  label: 'Pending',  icon: '⏳' },
-  { key: 'REJECTED', label: 'Rejected', icon: '❌' },
+  { key: "ALL", label: "All", icon: "📋" },
+  { key: "APPROVED", label: "Approved", icon: "✅" },
+  { key: "PENDING", label: "Pending", icon: "⏳" },
+  { key: "REJECTED", label: "Rejected", icon: "❌" },
 ];
 
 function FilterChips({
@@ -107,15 +130,17 @@ function FilterChips({
       horizontal
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.chipsRow}
+      style={styles.chipsScroll}
     >
       {FILTERS.map((f) => {
         const isActive = active === f.key;
-        const cfg = f.key !== 'ALL' ? STATUS_CONFIG[f.key as AppointmentStatus] : null;
+        const cfg =
+          f.key !== "ALL" ? STATUS_CONFIG[f.key as AppointmentStatus] : null;
 
-        const activeBg    = cfg ? cfg.chipActiveBg    : Colors.navy;
-        const activeText  = cfg ? cfg.chipActiveText  : Colors.white;
-        const borderColor = cfg ? cfg.chipBorder      : Colors.navy;
-        const count       = counts[f.key];
+        const activeBg = cfg ? cfg.chipActiveBg : Colors.navy;
+        const activeText = cfg ? cfg.chipActiveText : Colors.white;
+        const borderColor = cfg ? cfg.chipBorder : Colors.navy;
+        const count = counts[f.key];
 
         return (
           <TouchableOpacity
@@ -144,7 +169,7 @@ function FilterChips({
                   styles.chipCount,
                   {
                     backgroundColor: isActive
-                      ? 'rgba(255,255,255,0.25)'
+                      ? "rgba(255,255,255,0.25)"
                       : Colors.gray200,
                   },
                 ]}
@@ -168,14 +193,23 @@ function FilterChips({
 
 // ─── AppointmentCard ──────────────────────────────────────────────────────────
 
-function AppointmentCard({ item, onPress }: { item: Appointment; onPress: () => void }) {
-  const isApproved = item.status === 'APPROVED';
-  const isRejected = item.status === 'REJECTED';
+function AppointmentCard({
+  item,
+  onPress,
+}: {
+  item: Appointment;
+  onPress: () => void;
+}) {
+  const isApproved = item.status === "APPROVED";
+  const isRejected = item.status === "REJECTED";
   const cfg = STATUS_CONFIG[item.status];
 
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.75}>
-
+    <TouchableOpacity
+      style={styles.card}
+      onPress={onPress}
+      activeOpacity={0.75}
+    >
       {/* Coloured left accent bar */}
       <View style={[styles.cardAccent, { backgroundColor: cfg.color }]} />
 
@@ -183,7 +217,7 @@ function AppointmentCard({ item, onPress }: { item: Appointment; onPress: () => 
         {/* Top row */}
         <View style={styles.cardTop}>
           <Text style={styles.cardPurpose} numberOfLines={1}>
-            {item.purposeOfVisit || '—'}
+            {item.purposeOfVisit || "—"}
           </Text>
           <StatusBadge status={item.status} />
         </View>
@@ -191,12 +225,15 @@ function AppointmentCard({ item, onPress }: { item: Appointment; onPress: () => 
         {/* Meta row */}
         <View style={styles.cardMeta}>
           <Text style={styles.cardMetaIcon}>📅</Text>
-          <Text style={styles.cardDate}>{formatDate(item.appointmentDate)}</Text>
+          <Text style={styles.cardDate}>
+            {formatDate(item.appointmentDate)}
+          </Text>
           {item.companionsCount > 0 && (
             <>
               <Text style={styles.cardMetaDot}>·</Text>
               <Text style={styles.cardCompanions}>
-                +{item.companionsCount} companion{item.companionsCount > 1 ? 's' : ''}
+                +{item.companionsCount} companion
+                {item.companionsCount > 1 ? "s" : ""}
               </Text>
             </>
           )}
@@ -215,16 +252,18 @@ function AppointmentCard({ item, onPress }: { item: Appointment; onPress: () => 
         {/* Approved QR hint */}
         {isApproved && (
           <View style={styles.approvedHint}>
-            <Text style={styles.approvedHintText}>🎫  QR Pass Ready</Text>
+            <Text style={styles.approvedHintText}>🎫 QR Pass Ready</Text>
           </View>
         )}
 
         {/* Footer */}
         <View style={styles.cardFooter}>
-          <Text style={styles.cardTicket}>#{String(item.id).toUpperCase()}</Text>
+          <Text style={styles.cardTicket}>
+            #{String(item.id).toUpperCase()}
+          </Text>
           <View style={[styles.cardCtaBtn, { backgroundColor: cfg.bg }]}>
             <Text style={[styles.cardCtaText, { color: cfg.color }]}>
-              {isApproved ? 'View Pass ›' : 'View Details ›'}
+              {isApproved ? "View Pass ›" : "View Details ›"}
             </Text>
           </View>
         </View>
@@ -236,25 +275,33 @@ function AppointmentCard({ item, onPress }: { item: Appointment; onPress: () => 
 // ─── EmptyState ───────────────────────────────────────────────────────────────
 
 function EmptyState({ tab, filter }: { tab: Tab; filter: Filter }) {
-  const isFiltered = filter !== 'ALL';
+  const isFiltered = filter !== "ALL";
   return (
     <View style={styles.emptyWrap}>
       <Text style={styles.emptyIcon}>
         {isFiltered
-          ? filter === 'APPROVED' ? '✅' : filter === 'PENDING' ? '⏳' : '❌'
-          : tab === 'upcoming' ? '📅' : '🕐'}
+          ? filter === "APPROVED"
+            ? "✅"
+            : filter === "PENDING"
+              ? "⏳"
+              : "❌"
+          : tab === "upcoming"
+            ? "📅"
+            : "🕐"}
       </Text>
       <Text style={styles.emptyTitle}>
         {isFiltered
           ? `No ${STATUS_CONFIG[filter as AppointmentStatus]?.label} Appointments`
-          : tab === 'upcoming' ? 'No Upcoming Appointments' : 'No Past Appointments'}
+          : tab === "upcoming"
+            ? "No Upcoming Appointments"
+            : "No Past Appointments"}
       </Text>
       <Text style={styles.emptySubtitle}>
         {isFiltered
-          ? 'Try a different filter above.'
-          : tab === 'upcoming'
-            ? 'Book a darshan appointment from the Home screen.'
-            : 'Your completed appointments will appear here.'}
+          ? "Try a different filter above."
+          : tab === "upcoming"
+            ? "Book a darshan appointment from the Home screen."
+            : "Your completed appointments will appear here."}
       </Text>
     </View>
   );
@@ -263,8 +310,8 @@ function EmptyState({ tab, filter }: { tab: Tab; filter: Filter }) {
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function MyAppointmentsScreen() {
-  const navigation  = useNavigation<Nav>();
-  const insets      = useSafeAreaInsets();
+  const navigation = useNavigation<Nav>();
+  const insets = useSafeAreaInsets();
 
   const {
     appointments,
@@ -277,27 +324,32 @@ export default function MyAppointmentsScreen() {
     getPast,
   } = useAppointmentStore();
 
-  const [activeTab, setActiveTab]   = useState<Tab>('upcoming');
-  const [activeFilter, setFilter]   = useState<Filter>('ALL');
+  const [activeTab, setActiveTab] = useState<Tab>("upcoming");
+  const [activeFilter, setFilter] = useState<Filter>("ALL");
   const [refreshing, setRefreshing] = useState(false);
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
 
-  const fetchAppointments = useCallback(async (silent = false) => {
-    if (!silent) setLoading(true);
-    setError(null);
-    try {
-      const res = await appointmentService.getMyAppointments();
-      if (res.success) setAppointments(res.data);
-      else setError(res.message ?? 'Failed to load appointments.');
-    } catch {
-      setError('Could not load appointments. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  }, [setAppointments, setError, setLoading]);
+  const fetchAppointments = useCallback(
+    async (silent = false) => {
+      if (!silent) setLoading(true);
+      setError(null);
+      try {
+        const res = await appointmentService.getMyAppointments();
+        if (res.success) setAppointments(res.data);
+        else setError(res.message ?? "Failed to load appointments.");
+      } catch {
+        setError("Could not load appointments. Please try again.");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [setAppointments, setError, setLoading],
+  );
 
-  useEffect(() => { fetchAppointments(); }, [fetchAppointments]);
+  useEffect(() => {
+    fetchAppointments();
+  }, [fetchAppointments]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -308,40 +360,47 @@ export default function MyAppointmentsScreen() {
   // When switching tabs, reset filter to ALL
   function handleTabChange(tab: Tab) {
     setActiveTab(tab);
-    setFilter('ALL');
+    setFilter("ALL");
   }
 
   // ── Derived ────────────────────────────────────────────────────────────────
 
   const upcoming = getUpcoming();
-  const past     = getPast();
-  const baseList = activeTab === 'upcoming' ? upcoming : past;
+  const past = getPast();
+  const baseList = activeTab === "upcoming" ? upcoming : past;
 
   // Filtered list
   const data = useMemo(
-    () => activeFilter === 'ALL' ? baseList : baseList.filter((a) => a.status === activeFilter),
+    () =>
+      activeFilter === "ALL"
+        ? baseList
+        : baseList.filter((a) => a.status === activeFilter),
     [baseList, activeFilter],
   );
 
   // Counts for chip badges (always from full baseList, not filtered)
-  const counts: Record<Filter, number> = useMemo(() => ({
-    ALL:      baseList.length,
-    APPROVED: countByStatus(baseList, 'APPROVED'),
-    PENDING:  countByStatus(baseList, 'PENDING'),
-    REJECTED: countByStatus(baseList, 'REJECTED'),
-  }), [baseList]);
+  const counts: Record<Filter, number> = useMemo(
+    () => ({
+      ALL: baseList.length,
+      APPROVED: countByStatus(baseList, "APPROVED"),
+      PENDING: countByStatus(baseList, "PENDING"),
+      REJECTED: countByStatus(baseList, "REJECTED"),
+    }),
+    [baseList],
+  );
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
-
       {/* ── Header ── */}
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <Text style={styles.headerTitle}>My Appointments</Text>
           <View style={styles.totalBadge}>
-            <Text style={styles.totalBadgeText}>{appointments.length} total</Text>
+            <Text style={styles.totalBadgeText}>
+              {appointments.length} total
+            </Text>
           </View>
         </View>
 
@@ -349,15 +408,29 @@ export default function MyAppointmentsScreen() {
         <View style={styles.statsRow}>
           {(
             [
-              { label: 'Upcoming', value: upcoming.length,                          color: Colors.gold },
-              { label: 'Approved', value: countByStatus(appointments, 'APPROVED'),  color: Colors.success },
-              { label: 'Pending',  value: countByStatus(appointments, 'PENDING'),   color: Colors.warning },
-              { label: 'Rejected', value: countByStatus(appointments, 'REJECTED'),  color: Colors.danger },
+              { label: "Upcoming", value: upcoming.length, color: Colors.gold },
+              {
+                label: "Approved",
+                value: countByStatus(appointments, "APPROVED"),
+                color: Colors.success,
+              },
+              {
+                label: "Pending",
+                value: countByStatus(appointments, "PENDING"),
+                color: Colors.warning,
+              },
+              {
+                label: "Rejected",
+                value: countByStatus(appointments, "REJECTED"),
+                color: Colors.danger,
+              },
             ] as const
           ).map((s, i, arr) => (
             <React.Fragment key={s.label}>
               <View style={styles.statItem}>
-                <Text style={[styles.statNum, { color: s.color }]}>{s.value}</Text>
+                <Text style={[styles.statNum, { color: s.color }]}>
+                  {s.value}
+                </Text>
                 <Text style={styles.statLabel}>{s.label}</Text>
               </View>
               {i < arr.length - 1 && <View style={styles.statDivider} />}
@@ -368,9 +441,9 @@ export default function MyAppointmentsScreen() {
 
       {/* ── Segmented tabs ── */}
       <View style={styles.tabRow}>
-        {(['upcoming', 'past'] as Tab[]).map((tab) => {
+        {(["upcoming", "past"] as Tab[]).map((tab) => {
           const isActive = activeTab === tab;
-          const count    = tab === 'upcoming' ? upcoming.length : past.length;
+          const count = tab === "upcoming" ? upcoming.length : past.length;
           return (
             <TouchableOpacity
               key={tab}
@@ -378,12 +451,21 @@ export default function MyAppointmentsScreen() {
               onPress={() => handleTabChange(tab)}
               activeOpacity={0.8}
             >
-              <Text style={[styles.tabBtnText, isActive && styles.tabBtnTextActive]}>
-                {tab === 'upcoming' ? 'Upcoming' : 'Past'}
+              <Text
+                style={[styles.tabBtnText, isActive && styles.tabBtnTextActive]}
+              >
+                {tab === "upcoming" ? "Upcoming" : "Past"}
               </Text>
               {count > 0 && (
-                <View style={[styles.tabPill, isActive && styles.tabPillActive]}>
-                  <Text style={[styles.tabPillText, isActive && styles.tabPillTextActive]}>
+                <View
+                  style={[styles.tabPill, isActive && styles.tabPillActive]}
+                >
+                  <Text
+                    style={[
+                      styles.tabPillText,
+                      isActive && styles.tabPillTextActive,
+                    ]}
+                  >
                     {count}
                   </Text>
                 </View>
@@ -410,7 +492,10 @@ export default function MyAppointmentsScreen() {
           <Text style={styles.errorIcon}>⚠️</Text>
           <Text style={styles.errorTitle}>Could Not Load</Text>
           <Text style={styles.errorBody}>{error}</Text>
-          <TouchableOpacity style={styles.retryBtn} onPress={() => fetchAppointments()}>
+          <TouchableOpacity
+            style={styles.retryBtn}
+            onPress={() => fetchAppointments()}
+          >
             <Text style={styles.retryText}>Try Again</Text>
           </TouchableOpacity>
         </View>
@@ -434,11 +519,17 @@ export default function MyAppointmentsScreen() {
               colors={[Colors.gold]}
             />
           }
-          ListEmptyComponent={<EmptyState tab={activeTab} filter={activeFilter} />}
+          ListEmptyComponent={
+            <EmptyState tab={activeTab} filter={activeFilter} />
+          }
           renderItem={({ item }) => (
             <AppointmentCard
               item={item}
-              onPress={() => navigation.navigate('AppointmentDetail', { appointmentId: item.id })}
+              onPress={() =>
+                navigation.navigate("AppointmentDetail", {
+                  appointmentId: item.id,
+                })
+              }
             />
           )}
           ItemSeparatorComponent={() => <View style={{ height: Spacing[3] }} />}
@@ -465,9 +556,9 @@ const styles = StyleSheet.create({
     gap: Spacing[3],
   },
   headerTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   headerTitle: {
     fontSize: FontSizes.xl,
@@ -486,8 +577,8 @@ const styles = StyleSheet.create({
     fontWeight: FontWeights.medium,
   },
   statsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: Colors.navyMid,
     borderRadius: BorderRadius.md,
     paddingVertical: Spacing[3],
@@ -495,7 +586,7 @@ const styles = StyleSheet.create({
   },
   statItem: {
     flex: 1,
-    alignItems: 'center',
+    alignItems: "center",
     gap: 2,
   },
   statNum: {
@@ -515,20 +606,20 @@ const styles = StyleSheet.create({
 
   // ── Tabs ──
   tabRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     backgroundColor: Colors.white,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
     paddingHorizontal: Layout.screenPaddingH,
   },
   tabBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: Spacing[3],
     paddingHorizontal: Spacing[2],
     marginRight: Spacing[4],
     borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
+    borderBottomColor: "transparent",
     gap: Spacing.xs,
   },
   tabBtnActive: { borderBottomColor: Colors.gold },
@@ -556,33 +647,45 @@ const styles = StyleSheet.create({
   tabPillTextActive: { color: Colors.goldDark },
 
   // ── Filter chips ──
+
+  chipsScroll: {
+    flexGrow: 0, // ← prevents ScrollView itself from stretching
+    flexShrink: 0, // ← prevents ScrollView from being compressed by parent
+  },
+
   chipsRow: {
     paddingHorizontal: Layout.screenPaddingH,
     paddingVertical: Spacing[3],
     gap: Spacing[2],
-    flexDirection: 'row',
   },
+
   chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 5,
     paddingHorizontal: Spacing[3],
     paddingVertical: Spacing[2],
     borderRadius: BorderRadius.full,
     borderWidth: 1.5,
+    alignSelf: "flex-start", // ← ADD: chip sizes to its own content, never stretches
   },
+
   chipIcon: { fontSize: 13 },
+
   chipLabel: {
     fontSize: FontSizes.sm,
     fontWeight: FontWeights.semibold,
   },
+
   chipCount: {
     borderRadius: BorderRadius.full,
     paddingHorizontal: 6,
     paddingVertical: 1,
     minWidth: 18,
-    alignItems: 'center',
+    alignItems: "center",
+    flexShrink: 0, // ← ADD: badge never squeezes either
   },
+
   chipCountText: {
     fontSize: FontSizes.xs,
     fontWeight: FontWeights.bold,
@@ -598,8 +701,8 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: Colors.white,
     borderRadius: BorderRadius.md,
-    overflow: 'hidden',
-    flexDirection: 'row',
+    overflow: "hidden",
+    flexDirection: "row",
     ...Shadows.base,
   },
   cardAccent: {
@@ -612,9 +715,9 @@ const styles = StyleSheet.create({
     padding: Spacing[4],
   },
   cardTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
     gap: Spacing[2],
     marginBottom: Spacing[2],
   },
@@ -625,8 +728,8 @@ const styles = StyleSheet.create({
     color: Colors.navy,
   },
   cardMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: Spacing.xs,
     marginBottom: Spacing[1],
   },
@@ -644,7 +747,7 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
   },
   rejectionRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     backgroundColor: Colors.dangerLight,
     borderRadius: BorderRadius.sm,
     padding: Spacing.sm,
@@ -662,8 +765,8 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
   approvedHint: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginTop: Spacing[2],
   },
   approvedHintText: {
@@ -672,9 +775,9 @@ const styles = StyleSheet.create({
     fontWeight: FontWeights.semibold,
   },
   cardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginTop: Spacing[3],
     paddingTop: Spacing[2],
     borderTopWidth: 1,
@@ -701,7 +804,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing[2],
     paddingVertical: 3,
     borderRadius: BorderRadius.full,
-    alignSelf: 'flex-start',
+    alignSelf: "flex-start",
   },
   badgeText: {
     fontSize: FontSizes.xs,
@@ -710,7 +813,7 @@ const styles = StyleSheet.create({
 
   // ── Empty ──
   emptyWrap: {
-    alignItems: 'center',
+    alignItems: "center",
     paddingTop: Spacing[12],
     paddingHorizontal: Spacing.lg,
     gap: Spacing[3],
@@ -720,20 +823,20 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.lg,
     fontWeight: FontWeights.bold,
     color: Colors.navy,
-    textAlign: 'center',
+    textAlign: "center",
   },
   emptySubtitle: {
     fontSize: FontSizes.base,
     color: Colors.textSecondary,
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 22,
   },
 
   // ── Centre box ──
   centreBox: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     gap: Spacing[3],
     padding: Spacing.lg,
   },
@@ -750,7 +853,7 @@ const styles = StyleSheet.create({
   errorBody: {
     fontSize: FontSizes.base,
     color: Colors.textSecondary,
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 22,
   },
   retryBtn: {

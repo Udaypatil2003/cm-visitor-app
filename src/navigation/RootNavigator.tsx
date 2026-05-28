@@ -5,15 +5,12 @@ import { View, ActivityIndicator, StyleSheet } from "react-native";
 
 import { useAuthStore } from "../store/authStore";
 import { Colors } from "../constants/theme";
-
 import { CitizenNavigator } from "./CitizenNavigator";
 import { GuardNavigator } from "./GuardNavigator";
 import SplashScreen from "../app/auth/SplashScreen";
 import LoginScreen from "../app/auth/LoginScreen";
 import CitizenOnboardingScreen from "../app/auth/CitizenOnboardingScreen";
 import { AuthStackParamList } from "./types";
-
-// ─── Typed root param list ────────────────────────────────────────────────────
 
 type RootStackParamList = {
   Boot: undefined;
@@ -26,19 +23,6 @@ type RootStackParamList = {
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
 const RootStack = createNativeStackNavigator<RootStackParamList>();
 
-function AuthNavigator() {
-  return (
-    <AuthStack.Navigator
-      screenOptions={{ headerShown: false }}
-      initialRouteName="Splash"
-    >
-      <AuthStack.Screen name="Splash" component={SplashScreen} />
-      <AuthStack.Screen name="Login" component={LoginScreen} />
-      {/* CitizenOnboarding removed — RootStack owns it now */}
-    </AuthStack.Navigator>
-  );
-}
-
 function BootLoader() {
   return (
     <View style={styles.bootLoader}>
@@ -47,33 +31,47 @@ function BootLoader() {
   );
 }
 
+function AuthNavigator() {
+  return (
+    <AuthStack.Navigator
+      screenOptions={{ headerShown: false }}
+      initialRouteName="Splash"
+    >
+      <AuthStack.Screen name="Splash" component={SplashScreen} />
+      <AuthStack.Screen name="Login" component={LoginScreen} />
+    </AuthStack.Navigator>
+  );
+}
+
 export default function RootNavigator() {
-  const {
-    isAuthenticated,
-    isLoading,
-    role,
-    needsOnboarding,
-    hydrateFromStorage,
-  } = useAuthStore();
+  const { isAuthenticated, isLoading, role, needsOnboarding, hydrateFromStorage } =
+    useAuthStore();
 
   useEffect(() => {
     hydrateFromStorage();
   }, []);
 
+  // ── Critical: always render exactly one Screen, no conditionals inside Navigator ──
+  const getScreens = () => {
+    if (isLoading) {
+      return <RootStack.Screen name="Boot" component={BootLoader} />;
+    }
+    if (!isAuthenticated) {
+      return <RootStack.Screen name="Auth" component={AuthNavigator} />;
+    }
+    if (needsOnboarding) {
+      return <RootStack.Screen name="Onboarding" component={CitizenOnboardingScreen} />;
+    }
+    if (role === "citizen") {
+      return <RootStack.Screen name="Citizen" component={CitizenNavigator} />;
+    }
+    return <RootStack.Screen name="Guard" component={GuardNavigator} />;
+  };
+
   return (
     <NavigationContainer>
       <RootStack.Navigator screenOptions={{ headerShown: false }}>
-        {isLoading ? (
-          <RootStack.Screen name="Boot" component={BootLoader} />
-        ) : !isAuthenticated ? (
-          <RootStack.Screen name="Auth" component={AuthNavigator} />
-        ) : needsOnboarding ? (
-          <RootStack.Screen name="Onboarding" component={CitizenOnboardingScreen} />
-        ) : role === "citizen" ? (
-          <RootStack.Screen name="Citizen" component={CitizenNavigator} />
-        ) : (
-          <RootStack.Screen name="Guard" component={GuardNavigator} />
-        )}
+        {getScreens()}
       </RootStack.Navigator>
     </NavigationContainer>
   );

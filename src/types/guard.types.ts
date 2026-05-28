@@ -1,17 +1,24 @@
 export interface QRVerifyPayload {
-  token: string;
+  qrtoken: string; // ← real API field name (was: token)
 }
 
+export type QRFailReason = 'EXPIRED' | 'NOT_APPROVED' | 'INVALID';
+
 export interface QRVerifyResult {
-  isValid: boolean;
+  isValid: boolean;                              // derived in service mapper
   status: 'APPROVED' | 'EXPIRED' | 'INVALID' | 'NOT_APPROVED';
   message: string;
-  citizenName: string | null;
-  citizenPhoto: string | null;
-  aadhaarNumber: string | null;
-  address: string | null;
+  failReason: QRFailReason | null;               // derived in service mapper
+
+  // Flat citizen + appointment fields (matches real API .data shape)
+  username: string | null;
+  fullname: string | null;
+  mobilenumber: string | null;
+  visitorphoto: string | null;
+  aadharnumber: string | null;
   city: string | null;
-  appointmentDate: string | null;
-  companionsCount: number | null;
-  purposeOfVisit: string | null;
+  address: string | null;
+  appointmentdate: string | null;
+  companionscount: number | null;
+  purposeofvisit: string | null;
 }

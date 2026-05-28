@@ -45,18 +45,19 @@ export const ScanResultCard: React.FC<ScanResultCardProps> = ({ result }) => {
         <View style={styles.divider} />
 
         {/* Citizen details */}
-        <View style={styles.citizenRow}>
+      <View style={styles.citizenRow}>
           <Avatar
-            uri={result.citizenPhoto}
+            uri={result.visitorphoto}         
             size={64}
-            name={result.citizenName ?? undefined}
+            name={result.fullname ?? undefined} 
           />
           <View style={styles.citizenInfo}>
-            <Text style={styles.citizenName}>{result.citizenName}</Text>
+            <Text style={styles.citizenName}>{result.fullname}</Text>
             <Text style={styles.citizenAadhaar}>
-              {result.aadhaarNumber
-                ? maskAadhaar(result.aadhaarNumber)
-                : 'N/A'}
+              {result.aadharnumber             
+                ? maskAadhaar(result.aadharnumber)  
+                : 'N/A'
+                }
             </Text>
           </View>
         </View>
@@ -65,17 +66,17 @@ export const ScanResultCard: React.FC<ScanResultCardProps> = ({ result }) => {
         <View style={styles.divider} />
 
         {/* Appointment details */}
-        <View style={styles.detailsGrid}>
-          {result.appointmentDate && (
+          <View style={styles.detailsGrid}>
+          {result.appointmentdate && (            
             <InfoRow
               label="Date"
-              value={formatDate(result.appointmentDate)}
+              value={formatDate(result.appointmentdate)}
             />
           )}
-          {result.companionsCount !== null && (
+          {result.companionscount !== null && (   
             <InfoRow
               label="Companions"
-              value={String(result.companionsCount)}
+              value={String(result.companionscount)}
             />
           )}
           {result.address && (
@@ -84,8 +85,8 @@ export const ScanResultCard: React.FC<ScanResultCardProps> = ({ result }) => {
           {result.city && (
             <InfoRow label="City" value={result.city} />
           )}
-          {result.purposeOfVisit && (
-            <InfoRow label="Purpose" value={result.purposeOfVisit} />
+          {result.purposeofvisit && (               
+            <InfoRow label="Purpose" value={result.purposeofvisit} />
           )}
         </View>
       </View>

@@ -1,14 +1,11 @@
 import { NavigatorScreenParams } from '@react-navigation/native';
+import type { QRVerifyResult } from '../types/guard.types'; 
 
-// ─── Auth Stack ───────────────────────────────────────────────────────────────
 
 export type AuthStackParamList = {
   Splash: undefined;
-  Welcome: undefined;
-  Login: undefined;
+  Login: undefined;           // ← no params, no Welcome
 };
-
-// ─── Citizen Tabs ─────────────────────────────────────────────────────────────
 
 export type CitizenTabParamList = {
   CitizenHome: undefined;
@@ -16,8 +13,6 @@ export type CitizenTabParamList = {
   Profile: undefined;
   Alerts: undefined;
 };
-
-// ─── Citizen Stack (wraps tabs + modals + push screens) ───────────────────────
 
 export type CitizenStackParamList = {
   CitizenTabs: NavigatorScreenParams<CitizenTabParamList>;
@@ -31,10 +26,9 @@ export type CitizenStackParamList = {
   EditProfile: undefined;
 };
 
-// ─── Guard Stack ──────────────────────────────────────────────────────────────
-
 export type GuardStackParamList = {
   GuardHome: undefined;
   QRScanner: undefined;
-  ScanResult: { result: string };   // result is JSON.stringified QRVerifyResult
+ScanResult: { result: QRVerifyResult };
+GuardBookVisitor: undefined;  
 };

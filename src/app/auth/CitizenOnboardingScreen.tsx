@@ -110,25 +110,47 @@ export default function CitizenOnboardingScreen() {
   };
 
   // ── Submit ──────────────────────────────────────────────────────────────────
-  const onSubmit = async (data: OnboardingFormData) => {
-    setSubmitting(true);
-    try {
-      const res = await userService.createProfile(data);
-      if (!res.success) {
-        Alert.alert('Error', res.message || 'Failed to create profile');
-        return;
-      }
-      // Store the returned user — RootNavigator sees isAuthenticated=true
-      // + role='citizen' and auto-renders CitizenNavigator → CitizenHome
-      setCitizenUser(res.data);
-      setNeedsOnboarding(false);
-      resetForm();
-    } catch (e: any) {
-      Alert.alert('Error', e?.message || 'Something went wrong. Please try again.');
-    } finally {
-      setSubmitting(false);
+const onSubmit = async (data: OnboardingFormData) => {
+  setSubmitting(true);
+  try {
+    // Step 1 — create the profile (text fields)
+    const res = await userService.createProfile(data);
+    if (!res.success) {
+      Alert.alert('Error', res.message || 'Failed to create profile');
+      return;
     }
-  };
+
+    let finalUser = res.data;
+
+    // Step 2 — upload photo if selected (non-blocking: failure shows
+    // warning but does NOT block onboarding completion)
+    if (photoUri) {
+      try {
+        const photoRes = await userService.uploadPhoto(photoUri);
+        if (photoRes.success && photoRes.data?.photoUrl) {
+          // Merge the returned photoUrl into the user object so
+          // AvatarBlock in every screen shows the real photo immediately
+          finalUser = { ...finalUser, profilePhotoUrl: photoRes.data.photoUrl };
+        }
+      } catch {
+        // Photo upload failed — user can retry from EditProfileScreen
+        Alert.alert(
+          'Photo Upload Failed',
+          'Your profile was created but the photo could not be uploaded. You can add it later from your profile.',
+          [{ text: 'OK' }]
+        );
+      }
+    }
+
+    setCitizenUser(finalUser);
+    setNeedsOnboarding(false);
+    resetForm();
+  } catch (e: any) {
+    Alert.alert('Error', e?.message || 'Something went wrong. Please try again.');
+  } finally {
+    setSubmitting(false);
+  }
+};
 
   const onError = () => scrollRef.current?.scrollTo({ y: 0, animated: true });
 
@@ -292,11 +314,8 @@ export default function CitizenOnboardingScreen() {
 
           {/* ── Section 4: Photo (optional until upload endpoint exists) ─ */}
           <View style={s.section}>
-            <View style={s.sectionTitleRow}>
-              <Text style={s.sectionTitle}>📸  Profile Photo</Text>
-              <Text style={s.optionalBadge}>Optional</Text>
-            </View>
-            <Text style={s.hint}>Upload later from your profile once the feature is live.</Text>
+<Text style={s.sectionTitle}>📸  Profile Photo</Text>
+<Text style={s.hint}>Recommended — helps guards verify your identity at the gate.</Text>
 
             {photoUri ? (
               <View style={s.photoPreviewWrap}>

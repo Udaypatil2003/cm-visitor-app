@@ -41,9 +41,9 @@ export default function SplashScreen({ navigation }: Props) {
       if (hasNavigated.current) return;
       hasNavigated.current = true;
 
-      if (!isAuthenticated) {
-        navigation.replace('Login');
-      }
+     if (!isAuthenticated) {
+  navigation.replace('Login');   // ← Welcome screen handles role selection
+}
       // isAuthenticated === true → RootNavigator already
       // rendered CitizenNavigator, this screen is unmounted
     }, 2000);

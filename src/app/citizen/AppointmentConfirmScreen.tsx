@@ -58,7 +58,9 @@ import { useAppointmentStore } from "../../store/appointmentStore";
 import { useAuthStore } from "../../store/authStore";
 import type { Appointment } from "../../types/appointment.types";
 import { formatDate } from "../../utils/dateUtils";
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import ViewShot, { captureRef } from "react-native-view-shot";
+import * as Sharing from 'expo-sharing';
 
 
 // ─── Navigation types (kept minimal — fill in with your navigator's param list) ─
@@ -97,6 +99,7 @@ export default function AppointmentConfirmScreen({ navigation, route }: Props) {
   // Fade-in animation for the ticket
   const ticketOpacity = useRef(new Animated.Value(0)).current;
   const ticketTranslateY = useRef(new Animated.Value(24)).current;
+  const ticketRef = useRef<ViewShot>(null);
 
   // ── Submit on mount ──────────────────────────────────────────────────────
   const submit = useCallback(async () => {
@@ -159,23 +162,27 @@ export default function AppointmentConfirmScreen({ navigation, route }: Props) {
   }, []);
 
   // ── Share handler ────────────────────────────────────────────────────────
-  const handleShare = useCallback(async () => {
-    if (!appointment || !citizenUser) return;
-    try {
-      await Share.share({
-        message:
-          `Darshan E-Ticket\n` +
-          `Visitor: ${citizenUser.fullName}\n` +
-          `Date: ${formatDate(appointment.appointmentDate)}\n` +
-          `Reason: ${appointment.purposeOfVisit}\n` +
-          `Venue: Virar Bungalow, Civil Lines Area, Opp. State Bank, PIN 401303\n` +
-          `Ticket #${appointment.id}`,
-        title: "Darshan E-Ticket",
+ const handleShare = useCallback(async () => {
+  if (!appointment || !citizenUser) return;
+  try {
+    const uri = await captureRef(ticketRef, {
+      format:  'png',
+      quality: 1,
+      result:  'tmpfile',
+    });
+
+    const isAvailable = await Sharing.isAvailableAsync();
+    if (isAvailable) {
+      await Sharing.shareAsync(uri, {
+        mimeType:   'image/png',
+        dialogTitle: 'Share Darshan E-Ticket',
+        UTI:         'public.png',   // iOS only, ignored on Android
       });
-    } catch {
-      // Share dialog cancelled — no action needed
     }
-  }, [appointment, citizenUser]);
+  } catch {
+    // cancelled
+  }
+}, [appointment, citizenUser]);
 
   // ── Navigate home ────────────────────────────────────────────────────────
   const handleDone = useCallback(() => {
@@ -281,89 +288,94 @@ export default function AppointmentConfirmScreen({ navigation, route }: Props) {
             },
           ]}
         >
-          {/* ── Booking Verified banner ── */}
-          <View style={styles.verifiedBanner}>
-            <View style={styles.verifiedIconCircle}>
-              <Text style={styles.verifiedIconText}>✓</Text>
-            </View>
-            <View>
-              <Text style={styles.verifiedTitle}>Booking Verified</Text>
-              <Text style={styles.verifiedSubtitle}>
-                Present this QR at the Main Gate
-              </Text>
-            </View>
-          </View>
-
-          {/* ── Official header block (dark navy) ── */}
-          <View style={styles.officialBlock}>
-            <Avatar uri={null} size={42} />
-            <View style={styles.officialTextBlock}>
-              <Text style={styles.officialName}>Hon. Minister Office</Text>
-              <Text style={styles.officialSub}>PUBLIC LIAISON OFFICE</Text>
-            </View>
-            <View style={styles.officialBadge}>
-              <Text style={styles.officialBadgeText}>OFFICIAL</Text>
-            </View>
-          </View>
-
-          {/* ── Visitor + QR card (white) ── */}
-          <View style={styles.ticketCard}>
-            {/* Visitor name */}
-            <View style={styles.visitorRow}>
-              <PersonIcon />
-              <View style={styles.visitorTextBlock}>
-                <Text style={styles.visitorLabel}>VISITOR NAME</Text>
-                <Text style={styles.visitorName}>{citizenUser.fullName}</Text>
+          {/* ↓ ViewShot wraps everything that goes into the shared image ↓ */}
+          <ViewShot ref={ticketRef} options={{ format: "png", quality: 1 }}>
+            <View style={styles.ticketShareRoot}>
+              {/* ── Official header block ── */}
+              <View style={styles.officialBlock}>
+                <Avatar uri={null} size={42} />
+                <View style={styles.officialTextBlock}>
+                  <Text style={styles.officialName}>Hon. Minister Office</Text>
+                  <Text style={styles.officialSub}>PUBLIC LIAISON OFFICE</Text>
+                </View>
+                <View style={styles.officialBadge}>
+                  <Text style={styles.officialBadgeText}>OFFICIAL</Text>
+                </View>
               </View>
-            </View>
 
-            {/* QR Code with gold decorative border */}
-            <View style={styles.qrOuter}>
-              <View style={styles.qrCornerTL} />
-              <View style={styles.qrCornerTR} />
-              <View style={styles.qrCornerBL} />
-              <View style={styles.qrCornerBR} />
-              <View style={styles.qrInner}>
-                <QRCode
-                  value={appointment.qrToken || appointment.id}
-                  size={160}
-                  color={Colors.navy}
-                  backgroundColor={Colors.white}
+              {/* ── Visitor + QR card ── */}
+              <View style={styles.ticketCard}>
+                {/* Visitor identity row */}
+                <View style={styles.visitorRow}>
+                  <PersonIcon />
+                  <View style={styles.visitorTextBlock}>
+                    <Text style={styles.visitorLabel}>VISITOR NAME</Text>
+                    <Text style={styles.visitorName}>
+                      {citizenUser.fullName}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* QR with gold border */}
+                <View style={styles.qrOuter}>
+                  <View style={styles.qrCornerTL} />
+                  <View style={styles.qrCornerTR} />
+                  <View style={styles.qrCornerBL} />
+                  <View style={styles.qrCornerBR} />
+                  <View style={styles.qrInner}>
+                    <QRCode
+                      value={appointment.qrToken || appointment.id}
+                      size={160}
+                      color={Colors.navy}
+                      backgroundColor={Colors.white}
+                    />
+                  </View>
+                </View>
+
+                {/* Ticket number */}
+                <Text style={styles.ticketNumber}>
+                  TICKET #{appointment.id.toUpperCase()}
+                </Text>
+
+                <View style={styles.divider} />
+
+                {/* Detail rows */}
+                <DetailRow
+                  icon={<CalendarIcon />}
+                  label="DATE"
+                  value={formatDate(appointment.appointmentDate)}
                 />
+                <DetailRow
+                  icon={<DocIcon />}
+                  label="REASON"
+                  value={appointment.purposeOfVisit}
+                />
+                <DetailRow
+                  icon={<PinIcon />}
+                  label="MEETING VENUE"
+                  value="Virar Bungalow, Civil Lines Area, Opp. State Bank, PIN 401303"
+                />
+
+                {/* Aadhaar */}
+                <View style={styles.aadhaarRow}>
+                  <Text style={styles.aadhaarLabel}>ID (Aadhaar)</Text>
+                  <Text style={styles.aadhaarValue}>{maskedAadhaar}</Text>
+                </View>
+              </View>
+
+              {/* ── Watermark footer ── */}
+              <View style={styles.watermarkRow}>
+                <Text style={styles.watermarkGovt}>
+                  🏛 GOVERNMENT OF MAHARASHTRA
+                </Text>
+                <Text style={styles.watermarkApp}>
+                  CM Bungalow Visitor Pass
+                </Text>
               </View>
             </View>
+          </ViewShot>
 
-            {/* Ticket number + queue */}
-            <Text style={styles.ticketNumber}>
-              TICKET #{appointment.id.toUpperCase()}
-            </Text>
-            <View style={styles.divider} />
-
-            {/* Detail rows */}
-            <DetailRow
-              icon={<CalendarIcon />}
-              label="DATE"
-              value={formatDate(appointment.appointmentDate)}
-            />
-            <DetailRow
-              icon={<DocIcon />}
-              label="REASON"
-              value={appointment.purposeOfVisit}
-            />
-            <DetailRow
-              icon={<PinIcon />}
-              label="MEETING VENUE"
-              value="Virar Bungalow, Civil Lines Area, Opp. State Bank, PIN 401303"
-            />
-
-            {/* Masked Aadhaar */}
-            <View style={styles.aadhaarRow}>
-              <Text style={styles.aadhaarLabel}>ID (Aadhaar)</Text>
-              <Text style={styles.aadhaarValue}>{maskedAadhaar}</Text>
-            </View>
-          </View>
-
-          {/* ── Disclaimer ── */}
+          {/* Disclaimer stays outside ViewShot — not part of shared image */}
           <Text style={styles.disclaimer}>
             ⓘ Entry permitted only with valid identity proof matching visitor
             name.
@@ -582,6 +594,30 @@ const styles = StyleSheet.create({
   // ── Ticket wrapper ──
   ticketWrapper: {
     gap: Spacing.sm,
+  },
+
+  ticketShareRoot: {
+    backgroundColor: Colors.white,
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+    // No shadow here — shadows don't capture well in ViewShot
+  },
+  watermarkRow: {
+    backgroundColor: Colors.navy,
+    paddingVertical: Spacing[3],
+    paddingHorizontal: Spacing[4],
+    alignItems: "center",
+    gap: Spacing[1],
+  },
+  watermarkGovt: {
+    fontSize: FontSizes.xs,
+    fontWeight: FontWeights.bold,
+    color: Colors.gold,
+    letterSpacing: 1.2,
+  },
+  watermarkApp: {
+    fontSize: FontSizes.xs,
+    color: Colors.gray400,
   },
 
   // ── Verified banner ──

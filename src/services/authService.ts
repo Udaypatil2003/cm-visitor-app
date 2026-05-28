@@ -62,6 +62,14 @@ interface RawCitizenFromAPI {
   updated_at: string;
 }
 
+interface RawGuardFromAPI {
+  id: number;
+  username: string;
+  fullname: string;   // backend sends lowercase 'n'
+}
+
+
+
 // ─── Mapper ───────────────────────────────────────────────────────────────────
 // Only place in the codebase where backend field names appear.
 // Internal types never change — only this function changes when backend changes.
@@ -94,6 +102,15 @@ function normalizeGender(raw: string | null): CitizenUser['gender'] {
 // Citizen needs onboarding if fullname has never been set
 function isNewCitizen(raw: RawCitizenFromAPI): boolean {
   return !raw.fullname || raw.fullname.trim() === '';
+}
+
+function mapRawGuardToUser(raw: RawGuardFromAPI): GuardUser {
+  return {
+    id: String(raw.id),
+    username: raw.username,
+    fullName: raw.fullname,   // map backend 'fullname' → internal 'fullName'
+    createdAt: '',            // backend doesn't return this field yet
+  };
 }
 
 // ─── Service ──────────────────────────────────────────────────────────────────
@@ -163,16 +180,26 @@ const authService = {
     return response.data;
   },
 
-  async guardLogin(
-    username: string,
-    password: string
-  ): Promise<ApiResponse<GuardLoginResponse>> {
-    const response = await apiClient.post<ApiResponse<GuardLoginResponse>>(
-      Endpoints.GUARD_LOGIN,
-      { username, password }
-    );
-    return response.data;
-  },
+async guardLogin(
+  username: string,
+  password: string
+): Promise<ApiResponse<GuardLoginResponse>> {
+  const response = await apiClient.post<{
+    success: boolean;
+    message: string;
+    token: string;
+    guard: RawGuardFromAPI;   // flat response, no 'data' wrapper
+  }>(Endpoints.GUARD_LOGIN, { username, password });
+
+  return {
+    success: true,
+    data: {
+      token: response.data.token,
+      guard: mapRawGuardToUser(response.data.guard),
+    },
+    message: response.data.message,
+  };
+},
 
   async logout(): Promise<void> {
     try {
