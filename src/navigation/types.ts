@@ -17,10 +17,13 @@ export type CitizenTabParamList = {
 export type CitizenStackParamList = {
   CitizenTabs: NavigatorScreenParams<CitizenTabParamList>;
   BookAppointment: undefined;
-  AppointmentConfirm: {
+ AppointmentConfirm: {
     appointmentDate: string;
     companionsCount: 0 | 1 | 2;
     purposeOfVisit: string;
+    whomToVisit: string;          // NEW
+    referenceName: string;        // NEW
+    vehicleNumber: string | null; // NEW
   };
   AppointmentDetail: { appointmentId: string };
   EditProfile: undefined;

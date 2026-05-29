@@ -35,7 +35,7 @@ function LogoMark() {
 // ─── AppHeader ────────────────────────────────────────────────────────────────
 
 export function AppHeader({
-  title = 'Book Darshan Portal',
+  title = 'Book Appointment Portal',
   rightElement,
   showShadow = true,
 }: AppHeaderProps) {

@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 import {
   View,
   Text,
@@ -6,24 +6,31 @@ import {
   TouchableOpacity,
   Platform,
   Pressable,
-} from 'react-native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Path, Circle } from 'react-native-svg';
+} from "react-native";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Svg, { Path, Circle } from "react-native-svg";
 
-import { Colors, FontSizes, FontWeights, Spacing, Shadows, BorderRadius } from '../constants/theme';
-import { CitizenStackParamList, CitizenTabParamList } from './types';
-import { useNavigation } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import {
+  Colors,
+  FontSizes,
+  FontWeights,
+  Spacing,
+  Shadows,
+  BorderRadius,
+} from "../constants/theme";
+import { CitizenStackParamList, CitizenTabParamList } from "./types";
+import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 // Screens
-import CitizenHomeScreen from '../app/citizen/CitizenHomeScreen';
-import MyAppointmentsScreen from '../app/citizen/MyAppointmentsScreen';
-import EditProfileScreen from '../app/citizen/EditProfileScreen';
-import BookAppointmentScreen from '../app/citizen/BookAppointmentScreen';
-import AppointmentConfirmScreen from '../app/citizen/AppointmentConfirmScreen';
-import AppointmentDetailScreen from '../app/citizen/AppointmentDetailScreen';
+import CitizenHomeScreen from "../app/citizen/CitizenHomeScreen";
+import MyAppointmentsScreen from "../app/citizen/MyAppointmentsScreen";
+import EditProfileScreen from "../app/citizen/EditProfileScreen";
+import BookAppointmentScreen from "../app/citizen/BookAppointmentScreen";
+import AppointmentConfirmScreen from "../app/citizen/AppointmentConfirmScreen";
+import AppointmentDetailScreen from "../app/citizen/AppointmentDetailScreen";
 
 // Placeholder screens for Alerts (Step 45 — notifications, not yet built)
 
@@ -74,9 +81,15 @@ function HistoryIcon({ color }: { color: string }) {
   );
 }
 
-function AlertsIcon({ color, badgeCount }: { color: string; badgeCount?: number }) {
+function AlertsIcon({
+  color,
+  badgeCount,
+}: {
+  color: string;
+  badgeCount?: number;
+}) {
   return (
-    <View style={{ position: 'relative' }}>
+    <View style={{ position: "relative" }}>
       <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
         <Path
           d="M15 17H5a2 2 0 01-2-2v-.5C3 13.6 4 12.8 4 12V8a8 8 0 1116 0v4c0 .8 1 1.6 1 2.5V15a2 2 0 01-2 2h-4z"
@@ -94,7 +107,7 @@ function AlertsIcon({ color, badgeCount }: { color: string; badgeCount?: number 
       {badgeCount !== undefined && badgeCount > 0 && (
         <View style={tabStyles.badge}>
           <Text style={tabStyles.badgeText}>
-            {badgeCount > 9 ? '9+' : badgeCount}
+            {badgeCount > 9 ? "9+" : badgeCount}
           </Text>
         </View>
       )}
@@ -120,22 +133,13 @@ function ProfileIcon({ color }: { color: string }) {
 
 interface TabItemProps {
   icon: React.ReactNode;
-  label: string;
   focused: boolean;
 }
 
-function TabItem({ icon, label, focused }: TabItemProps) {
+function TabItem({ icon, focused }: TabItemProps) {
   return (
-    <View style={tabStyles.item}>
-      {icon}
-      <Text
-        style={[
-          tabStyles.label,
-          { color: focused ? Colors.gold : Colors.gray500 },
-        ]}
-      >
-        {label}
-      </Text>
+    <View style={[tabStyles.item, focused && tabStyles.itemFocused]}>
+      <View style={{ opacity: focused ? 1 : 0.4 }}>{icon}</View>
     </View>
   );
 }
@@ -144,16 +148,24 @@ function TabItem({ icon, label, focused }: TabItemProps) {
 // We use a custom tabBar so we can inject the floating + BOOKING button
 // that sits above the tab bar in the center-right area (matching PDF page 3)
 
-  function CustomTabBar({ state, descriptors, navigation }: any) {
+// ─── Custom Tab Bar — Design 2: dark floating pill ────────────────────────────
+function CustomTabBar({ state, descriptors, navigation }: any) {
   const insets = useSafeAreaInsets();
-  const stackNav = useNavigation<NativeStackNavigationProp<CitizenStackParamList>>();
+  const stackNav =
+    useNavigation<NativeStackNavigationProp<CitizenStackParamList>>();
 
-  const tabBarHeight = 64;
-  const bottomPadding = insets.bottom > 0 ? insets.bottom : Platform.OS === 'android' ? 8 : 0;
+  const bottomPadding =
+    insets.bottom > 0 ? insets.bottom : Platform.OS === 'android' ? 8 : 4;
 
   return (
-    <View style={[tabBarStyles.wrapper, { paddingBottom: bottomPadding }]}>
-      {/* ── Floating + BOOKING FAB ──────────────────────────────────────── */}
+    <View
+      style={[
+        tabBarStyles.outerWrapper,
+        { paddingBottom: bottomPadding },
+      ]}
+      pointerEvents="box-none"
+    >
+      {/* ── FAB — "+ New Booking" pill ───────────────────────────────── */}
       <TouchableOpacity
         style={tabBarStyles.fab}
         activeOpacity={0.85}
@@ -162,11 +174,11 @@ function TabItem({ icon, label, focused }: TabItemProps) {
         accessibilityRole="button"
       >
         <Text style={tabBarStyles.fabPlus}>+</Text>
-        <Text style={tabBarStyles.fabLabel}>BOOKING</Text>
+        <Text style={tabBarStyles.fabLabel}>New Booking</Text>
       </TouchableOpacity>
 
-      {/* ── Tab Bar ────────────────────────────────────────────────────── */}
-      <View style={[tabBarStyles.tabBar, { height: tabBarHeight }]}>
+      {/* ── Dark pill tab bar ────────────────────────────────────────── */}
+      <View style={tabBarStyles.pill}>
         {state.routes.map((route: any, index: number) => {
           const { options } = descriptors[route.key];
           const focused = state.index === index;
@@ -186,12 +198,25 @@ function TabItem({ icon, label, focused }: TabItemProps) {
             <Pressable
               key={route.key}
               onPress={onPress}
-              style={tabBarStyles.tabItem}
-              android_ripple={{ color: Colors.goldLight, borderless: true }}
+              style={tabBarStyles.pillTab}
+              android_ripple={{ color: 'rgba(255,255,255,0.1)', borderless: true }}
               accessibilityRole="tab"
               accessibilityState={{ selected: focused }}
             >
-              {options.tabBarIcon?.({ focused, color: focused ? Colors.gold : Colors.gray500, size: 22 })}
+              {/* Active tab gets a lighter pill highlight */}
+              {focused && <View style={tabBarStyles.activeHighlight} />}
+              <View style={{ opacity: focused ? 1 : 0.5 }}>
+                {options.tabBarIcon?.({ focused, color: Colors.white, size: 22 })}
+              </View>
+              {focused && (
+                <Text style={tabBarStyles.activeLabel}>
+                  {route.name === 'CitizenHome'
+                    ? 'Home'
+                    : route.name === 'MyAppointments'
+                    ? 'History'
+                    : 'Profile'}
+                </Text>
+              )}
             </Pressable>
           );
         })}
@@ -206,7 +231,8 @@ function CitizenTabs() {
   return (
     <Tab.Navigator
       tabBar={(props) => <CustomTabBar {...props} />}
-      screenOptions={{ headerShown: false }}
+      screenOptions={{ headerShown: false,
+       }}
     >
       <Tab.Screen
         name="CitizenHome"
@@ -214,8 +240,7 @@ function CitizenTabs() {
         options={{
           tabBarIcon: ({ focused }) => (
             <TabItem
-              icon={<HomeIcon color={focused ? Colors.gold : Colors.gray500} />}
-              label="Home"
+              icon={<HomeIcon color={focused ? Colors.gold : Colors.white} />}
               focused={focused}
             />
           ),
@@ -227,8 +252,9 @@ function CitizenTabs() {
         options={{
           tabBarIcon: ({ focused }) => (
             <TabItem
-              icon={<HistoryIcon color={focused ? Colors.gold : Colors.gray500} />}
-              label="History"
+              icon={
+                <HistoryIcon color={focused ? Colors.gold : Colors.white} />
+              }
               focused={focused}
             />
           ),
@@ -240,8 +266,9 @@ function CitizenTabs() {
         options={{
           tabBarIcon: ({ focused }) => (
             <TabItem
-              icon={<ProfileIcon color={focused ? Colors.gold : Colors.gray500} />}
-              label="Profile"
+              icon={
+                <ProfileIcon color={focused ? Colors.gold : Colors.white} />
+              }
               focused={focused}
             />
           ),
@@ -264,8 +291,8 @@ export function CitizenNavigator() {
         name="BookAppointment"
         component={BookAppointmentScreen}
         options={{
-          presentation: 'modal',
-          animation: 'slide_from_bottom',
+          presentation: "modal",
+          animation: "slide_from_bottom",
           headerShown: false,
         }}
       />
@@ -273,8 +300,8 @@ export function CitizenNavigator() {
         name="AppointmentConfirm"
         component={AppointmentConfirmScreen}
         options={{
-          presentation: 'modal',
-          animation: 'slide_from_bottom',
+          presentation: "modal",
+          animation: "slide_from_bottom",
           gestureEnabled: false,
           headerShown: false,
         }}
@@ -284,12 +311,12 @@ export function CitizenNavigator() {
       <Stack.Screen
         name="AppointmentDetail"
         component={AppointmentDetailScreen}
-        options={{ animation: 'slide_from_right', headerShown: false }}
+        options={{ animation: "slide_from_right", headerShown: false }}
       />
       <Stack.Screen
         name="EditProfile"
         component={EditProfileScreen}
-        options={{ animation: 'slide_from_right' }}
+        options={{ animation: "slide_from_right" }}
       />
     </Stack.Navigator>
   );
@@ -299,24 +326,26 @@ export function CitizenNavigator() {
 
 const tabStyles = StyleSheet.create({
   item: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 3,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: Spacing[5],
+    paddingVertical: Spacing[2],
+    borderRadius: 20,
   },
-  label: {
-    fontSize: FontSizes.xs,
-    fontWeight: FontWeights.medium,
+  itemFocused: {
+    backgroundColor: "rgba(245,166,35,0.18)", // translucent gold tint on dark bg
   },
+  // badge kept as-is from original
   badge: {
-    position: 'absolute',
+    position: "absolute",
     top: -4,
     right: -8,
     backgroundColor: Colors.danger,
     borderRadius: BorderRadius.full,
     minWidth: 16,
     height: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     paddingHorizontal: 3,
   },
   badgeText: {
@@ -327,51 +356,73 @@ const tabStyles = StyleSheet.create({
 });
 
 const tabBarStyles = StyleSheet.create({
-  wrapper: {
-    backgroundColor: Colors.white,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: Colors.border,
-    ...Shadows.md,
-  },
-  tabBar: {
-    flexDirection: 'row',
-    backgroundColor: Colors.white,
-  },
-  tabItem: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  // ── FAB — floating gold circle button ──────────────────────────────────
-  fab: {
+  outerWrapper: {
     position: 'absolute',
-    right: Spacing[5],
-    // Sits 28px above the tab bar top edge so it floats above it
-    top: -56,
-    width: 72,
-    height: 72,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    // Transparent so screen content shows through
+    backgroundColor: 'transparent',
+    paddingHorizontal: Spacing[4],
+    paddingBottom: 12,
+  },
+  // ── Dark floating pill ───────────────────────────────────────────────────
+  pill: {
+    flexDirection: 'row',
+    backgroundColor: Colors.navy,          // dark navy pill
     borderRadius: BorderRadius.full,
-    backgroundColor: Colors.gold,
+    height: 60,
+    alignSelf: 'center',
+    paddingHorizontal: Spacing[2],
+    alignItems: 'center',
+    ...Shadows.lg,
+    // subtle border so it reads on light backgrounds
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Colors.navyMid,
+  },
+  pillTab: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 99,
+    paddingHorizontal: Spacing[4],
+    height: 44,
+    borderRadius: BorderRadius.full,
+    position: 'relative',
+    gap: 6,
+  },
+  activeHighlight: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderRadius: BorderRadius.full,
+  },
+  activeLabel: {
+    color: Colors.white,
+    fontSize: FontSizes.sm,
+    fontWeight: FontWeights.semibold,
+  },
+  // ── FAB pill ─────────────────────────────────────────────────────────────
+  fab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.gold,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing[5],
+    paddingVertical: Spacing[3],
+    marginBottom: Spacing[3],
+    gap: 6,
     ...Shadows.lg,
-    // Gold ring highlight
-    borderWidth: 3,
-    borderColor: Colors.goldLight,
   },
   fabPlus: {
-    fontSize: FontSizes.xl,
+    fontSize: FontSizes.lg,
     fontWeight: FontWeights.bold,
     color: Colors.navy,
-    lineHeight: 24,
-    marginTop: -2,
+    lineHeight: 22,
   },
   fabLabel: {
-    fontSize: 9,
+    fontSize: FontSizes.sm,
     fontWeight: FontWeights.bold,
     color: Colors.navy,
-    letterSpacing: 0.5,
-    marginTop: -2,
+    letterSpacing: 0.3,
   },
 });

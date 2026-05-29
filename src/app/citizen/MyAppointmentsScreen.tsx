@@ -300,7 +300,7 @@ function EmptyState({ tab, filter }: { tab: Tab; filter: Filter }) {
         {isFiltered
           ? "Try a different filter above."
           : tab === "upcoming"
-            ? "Book a darshan appointment from the Home screen."
+            ? "Book a appointment from the Home screen."
             : "Your completed appointments will appear here."}
       </Text>
     </View>

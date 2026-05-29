@@ -184,7 +184,7 @@ export default function AppointmentDetailScreen() {
       if (isAvailable) {
         await Sharing.shareAsync(uri, {
           mimeType: "image/png",
-          dialogTitle: "Share Darshan E-Ticket",
+          dialogTitle: "Share Appointment E-Ticket",
           UTI: "public.png",
         });
       }

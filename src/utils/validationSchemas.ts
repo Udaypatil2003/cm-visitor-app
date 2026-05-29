@@ -95,6 +95,9 @@ export const bookAppointmentSchema = z.object({
     .string()
     .min(Config.MIN_PURPOSE_LENGTH, `Purpose must be at least ${Config.MIN_PURPOSE_LENGTH} characters`)
     .max(500, 'Purpose too long'),
+     whomToVisit: z.string().trim().min(1, "Please specify whom you wish to meet."),    // make .optional() to relax
+  referenceName: z.string().trim().min(1, "Please enter a reference."),              // make .optional() to relax
+  vehicleNumber: z.string().trim().max(15).optional().or(z.literal("")), 
 });
 
 // Inferred types for use with react-hook-form

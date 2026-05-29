@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -7,12 +7,12 @@ import {
   TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
-import { AppHeader } from '../../components/common/AppHeader';
+import { AppHeader } from "../../components/common/AppHeader";
 import {
   Colors,
   FontSizes,
@@ -21,251 +21,578 @@ import {
   BorderRadius,
   Shadows,
   Layout,
-} from '../../constants/theme';
-import { useAuthStore } from '../../store/authStore';
-import { useAppointmentStore } from '../../store/appointmentStore';
-import appointmentService from '../../services/appointmentService';
-import { CitizenStackParamList } from '../../navigation/types';
-import { Appointment, AppointmentStatus } from '../../types/appointment.types';
+} from "../../constants/theme";
+import { useAuthStore } from "../../store/authStore";
+import { useAppointmentStore } from "../../store/appointmentStore";
+import appointmentService from "../../services/appointmentService";
+import { CitizenStackParamList } from "../../navigation/types";
+import { Appointment, AppointmentStatus } from "../../types/appointment.types";
+
 
 type Nav = NativeStackNavigationProp<CitizenStackParamList>;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function formatDate(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleDateString('en-IN', {
+// Handles both "2026-05-29" and "2026-05-29T00:00:00.000Z"
+function parseLocalDate(iso: string): Date {
+  // Strip to date-only part first, then force local midnight
+  const datePart = iso.split('T')[0];  // "2026-05-29T..." → "2026-05-29"
+  return new Date(`${datePart}T00:00:00`);
+}
+
+function formatLongDate(iso: string) {
+  return parseLocalDate(iso).toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+  });
+}
+
+function formatShortDate(iso: string) {
+  return parseLocalDate(iso).toLocaleDateString('en-IN', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
   });
 }
+function makeTodayLabel() {
+  const d = new Date();
+  const mon = d.toLocaleDateString("en-IN", { month: "short" }).toUpperCase();
+  return `TODAY · ${d.getDate()} ${mon}`;
+}
 
-const STATUS_CONFIG: Record<
+// ─── Status Badge ─────────────────────────────────────────────────────────────
+
+const STATUS_CFG: Record<
   AppointmentStatus,
-  { label: string; bg: string; text: string }
+  { label: string; bg: string; color: string }
 > = {
-  APPROVED: { label: 'Approved', bg: Colors.successLight, text: Colors.success },
-  PENDING:  { label: 'Pending',  bg: Colors.warningLight, text: Colors.warning },
-  REJECTED: { label: 'Rejected', bg: Colors.dangerLight,  text: Colors.danger  },
+  APPROVED: {
+    label: "Approved",
+    bg: Colors.successLight,
+    color: Colors.success,
+  },
+  PENDING: { label: "Pending", bg: Colors.warningLight, color: Colors.warning },
+  REJECTED: { label: "Rejected", bg: Colors.dangerLight, color: Colors.danger },
 };
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
 function StatusBadge({ status }: { status: AppointmentStatus }) {
-  const cfg = STATUS_CONFIG[status];
+  const c = STATUS_CFG[status];
   return (
-    <View style={[badge.wrap, { backgroundColor: cfg.bg }]}>
-      <Text style={[badge.text, { color: cfg.text }]}>{cfg.label}</Text>
+    <View style={[sb.wrap, { backgroundColor: c.bg }]}>
+      <View style={[sb.dot, { backgroundColor: c.color }]} />
+      <Text style={[sb.text, { color: c.color }]}>{c.label}</Text>
+    </View>
+  );
+}
+const sb = StyleSheet.create({
+  wrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.full,
+  },
+  dot: { width: 5, height: 5, borderRadius: 3 },
+  text: { fontSize: FontSizes.xs, fontWeight: FontWeights.semibold },
+});
+
+// ─── QR Placeholder Icon ──────────────────────────────────────────────────────
+
+function QRIcon() {
+  const CELLS = [1, 1, 0, 1, 0, 1, 0, 1, 1]; // simplified 3×3 pattern
+  return (
+    <View style={qr.grid}>
+      {CELLS.map((on, i) => (
+        <View key={i} style={[qr.cell, { opacity: on ? 0.65 : 0 }]} />
+      ))}
+    </View>
+  );
+}
+const qr = StyleSheet.create({
+  grid: {
+    width: 30,
+    height: 30,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 3,
+  },
+  cell: { width: 8, height: 8, backgroundColor: Colors.white, borderRadius: 1 },
+});
+
+// ─── Ticket — Upcoming Pass (left-screen design) ──────────────────────────────
+
+const NOTCH = 22; // diameter of punch-out notches
+
+function UpcomingPassTicket({
+  appt,
+  onPress,
+}: {
+  appt: Appointment;
+  onPress: () => void;
+}) {
+  return (
+    <View style={tkt.outer}>
+      {/* Punch-out notches — match screen bg so they appear cut out */}
+      <View style={[tkt.notch, { left: -(NOTCH / 2) }]} />
+      <View style={[tkt.notch, { right: -(NOTCH / 2) }]} />
+
+      {/* ── Top half ── */}
+      <View style={tkt.top}>
+        <View style={{ flex: 1 }}>
+          <View style={tkt.labelRow}>
+            <View style={tkt.goldDot} />
+            <Text style={tkt.labelTxt}>UPCOMING PASS</Text>
+          </View>
+          <Text style={tkt.dateTxt}>
+            {formatLongDate(appt.appointmentDate)}
+          </Text>
+          <Text style={tkt.subTxt}>Appointment</Text>
+        </View>
+        <TouchableOpacity style={tkt.btn} onPress={onPress} activeOpacity={0.8}>
+          <Text style={tkt.btnTxt}>View Pass ›</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* ── Perforated divider ── */}
+      <View style={tkt.perfRow}>
+        {[...Array(26)].map((_, i) => (
+          <View key={i} style={tkt.dash} />
+        ))}
+      </View>
+
+      {/* ── Bottom half ── */}
+      <View style={tkt.bottom}>
+        <QRIcon />
+        <Text style={tkt.gateTxt}>Show this at the entrance gate</Text>
+      </View>
     </View>
   );
 }
 
-const badge = StyleSheet.create({
-  wrap: {
-    paddingHorizontal: Spacing[2],
-    paddingVertical: 3,
-    borderRadius: BorderRadius.full,
-    alignSelf: 'flex-start',
+const tkt = StyleSheet.create({
+  outer: {
+    backgroundColor: Colors.navy,
+    borderRadius: BorderRadius.lg,
+    overflow: "visible", // lets notches bleed outside
+    marginBottom: Spacing[4],
+    ...Shadows.md,
   },
-  text: {
+  notch: {
+    position: "absolute",
+    width: NOTCH,
+    height: NOTCH,
+    borderRadius: NOTCH / 2,
+    backgroundColor: Colors.navyLight, // must match screen root bg
+    top: "58%",
+    zIndex: 10,
+  },
+  top: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    padding: Spacing[4],
+    paddingBottom: Spacing[3],
+    gap: Spacing[2],
+  },
+  labelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    marginBottom: 6,
+  },
+  goldDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: Colors.gold,
+  },
+  labelTxt: {
     fontSize: FontSizes.xs,
-    fontWeight: FontWeights.semibold,
+    fontWeight: FontWeights.bold,
+    color: Colors.gold,
+    letterSpacing: 1.2,
+  },
+  dateTxt: {
+    fontSize: FontSizes["3xl"],
+    fontWeight: FontWeights.extrabold,
+    color: Colors.white,
+    marginBottom: 4,
+  },
+  subTxt: { fontSize: FontSizes.sm, color: "rgba(255,255,255,0.45)" },
+  btn: {
+    marginTop: Spacing[2],
+    backgroundColor: Colors.gold,
+    paddingHorizontal: Spacing[3],
+    paddingVertical: 7,
+    borderRadius: BorderRadius.md,
+  },
+  btnTxt: {
+    fontSize: FontSizes.sm,
+    fontWeight: FontWeights.bold,
+    color: Colors.navy,
+  },
+  perfRow: {
+    flexDirection: "row",
+    paddingHorizontal: Spacing[4],
+    gap: 3,
+    marginBottom: Spacing[3],
+  },
+  dash: {
+    flex: 1,
+    height: 1.5,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    borderRadius: 1,
+  },
+  bottom: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing[3],
+    padding: Spacing[4],
+    paddingTop: 0,
+  },
+  gateTxt: { flex: 1, fontSize: FontSizes.sm, color: "rgba(255,255,255,0.45)" },
+});
+
+// ─── Tab Switcher (right-screen design) ───────────────────────────────────────
+
+function TabSwitcher({
+  active,
+  upCount,
+  pastCount,
+  onChange,
+}: {
+  active: "upcoming" | "past";
+  upCount: number;
+  pastCount: number;
+  onChange: (t: "upcoming" | "past") => void;
+}) {
+  return (
+    <View style={tsw.track}>
+      {(["upcoming", "past"] as const).map((t) => {
+        const focused = active === t;
+        const count = t === "upcoming" ? upCount : pastCount;
+        return (
+          <TouchableOpacity
+            key={t}
+            style={[tsw.tab, focused && tsw.activeTab]}
+            onPress={() => onChange(t)}
+            activeOpacity={0.8}
+          >
+            <Text style={[tsw.label, focused && tsw.activeLabel]}>
+              {t === "upcoming" ? "Upcoming" : "Previous"}
+            </Text>
+            {count > 0 && (
+              <View style={[tsw.pill, focused && tsw.activePill]}>
+                <Text style={[tsw.pillTxt, focused && tsw.activePillTxt]}>
+                  {count}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+}
+const tsw = StyleSheet.create({
+  track: {
+    flexDirection: "row",
+    backgroundColor: Colors.gray200,
+    borderRadius: BorderRadius.full,
+    padding: 3,
+    marginBottom: Spacing[4],
+  },
+  tab: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing[2],
+    borderRadius: BorderRadius.full,
+    gap: 5,
+  },
+  activeTab: { backgroundColor: Colors.white, ...Shadows.sm },
+  label: {
+    fontSize: FontSizes.sm,
+    fontWeight: FontWeights.medium,
+    color: Colors.textSecondary,
+  },
+  activeLabel: { fontWeight: FontWeights.bold, color: Colors.navy },
+  pill: {
+    backgroundColor: Colors.gray300,
+    borderRadius: BorderRadius.full,
+    minWidth: 18,
+    height: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 4,
+  },
+  activePill: { backgroundColor: Colors.goldLight },
+  pillTxt: {
+    fontSize: 10,
+    fontWeight: FontWeights.bold,
+    color: Colors.textSecondary,
+  },
+  activePillTxt: { color: Colors.goldDark },
+});
+
+// ─── Companion Avatars ────────────────────────────────────────────────────────
+
+const AV_PALETTE = [
+  { bg: Colors.gold, fg: Colors.navy },
+  { bg: Colors.navyMid, fg: Colors.white },
+  { bg: Colors.success, fg: Colors.white },
+  { bg: Colors.danger, fg: Colors.white },
+];
+
+function CompanionAvatars({
+  count,
+  initial,
+}: {
+  count: number;
+  initial: string;
+}) {
+  const total = count + 1;
+  const visible = Math.min(total, 3);
+  const extra = total - visible;
+  return (
+    <View style={av.row}>
+      {Array.from({ length: visible }).map((_, i) => {
+        const p = AV_PALETTE[i % AV_PALETTE.length];
+        const letter = i === 0 ? initial : String.fromCharCode(65 + i);
+        return (
+          <View
+            key={i}
+            style={[
+              av.circle,
+              { backgroundColor: p.bg, marginLeft: i > 0 ? -7 : 0 },
+            ]}
+          >
+            <Text style={[av.letter, { color: p.fg }]}>{letter}</Text>
+          </View>
+        );
+      })}
+      {extra > 0 && (
+        <View
+          style={[
+            av.circle,
+            { backgroundColor: Colors.gray300, marginLeft: -7 },
+          ]}
+        >
+          <Text style={[av.letter, { color: Colors.gray700 }]}>+{extra}</Text>
+        </View>
+      )}
+    </View>
+  );
+}
+const av = StyleSheet.create({
+  row: { flexDirection: "row", alignItems: "center" },
+  circle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+    borderColor: Colors.white,
+  },
+  letter: { fontSize: 9, fontWeight: FontWeights.bold },
+});
+
+// ─── Timeline Dot ─────────────────────────────────────────────────────────────
+
+function TimelineDot({ status }: { status: AppointmentStatus }) {
+  return (
+    <View
+      style={[
+        tdot.base,
+        status === "APPROVED" && {
+          backgroundColor: Colors.success,
+          borderColor: Colors.success,
+        },
+        status === "REJECTED" && { borderColor: Colors.danger },
+        status === "PENDING" && { borderColor: Colors.gold },
+      ]}
+    />
+  );
+}
+const tdot = StyleSheet.create({
+  base: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: Colors.gray400,
+    backgroundColor: "transparent",
+    marginTop: 4,
   },
 });
 
-// ── Appointment row card ───────────────────────────────────────────────────────
+// ─── Appointment Card (right-screen design) ───────────────────────────────────
 
-interface AppointmentCardProps {
+function AppointmentCard({
+  item,
+  initial,
+  onPress,
+}: {
   item: Appointment;
+  initial: string;
   onPress: () => void;
-  onViewPass: () => void;
-}
+}) {
+  // whomToVisit was added in the previous step — falls back gracefully if absent
+  const location = (item as any).whomToVisit as string | undefined;
 
-function AppointmentCard({ item, onPress, onViewPass }: AppointmentCardProps) {
   return (
-    <TouchableOpacity
-      style={card.wrap}
-      onPress={onPress}
-      activeOpacity={0.75}
-    >
-      <View style={card.top}>
-        <Text style={card.purpose} numberOfLines={1}>
-          {item.purposeOfVisit}
-        </Text>
-        <StatusBadge status={item.status} />
-      </View>
+    <View style={ac.row}>
+      <TimelineDot status={item.status} />
 
-      <View style={card.meta}>
-        <Text style={card.date}>{formatDate(item.appointmentDate)}</Text>
-        {item.companionsCount > 0 && (
-          <Text style={card.companions}>
-            +{item.companionsCount} companion{item.companionsCount > 1 ? 's' : ''}
+      <TouchableOpacity style={ac.card} onPress={onPress} activeOpacity={0.75}>
+        <View style={ac.titleRow}>
+          <Text style={ac.title} numberOfLines={1}>
+            {item.purposeOfVisit}
           </Text>
-        )}
-      </View>
+          <StatusBadge status={item.status} />
+        </View>
 
-      {item.status === 'REJECTED' && item.rejectionReason ? (
-        <Text style={card.rejection} numberOfLines={2}>
-          {item.rejectionReason}
-        </Text>
-      ) : null}
-
-      <View style={card.footer}>
-        {/* "View Pass" navigates to AppointmentDetail */}
-        <TouchableOpacity
-          onPress={(e) => {
-            e.stopPropagation();
-            onViewPass();
-          }}
-          hitSlop={8}
-        >
-          <Text style={card.passLink}>
-            {item.status === 'APPROVED' ? 'View Pass ›' : 'View Details ›'}
+        <View style={ac.metaRow}>
+          <Text style={ac.metaTxt}>
+            🕐 {formatShortDate(item.appointmentDate)}
           </Text>
-        </TouchableOpacity>
-      </View>
-    </TouchableOpacity>
+          {!!location && (
+            <Text style={ac.metaTxt} numberOfLines={1}>
+              {" "}
+              · 📍 {location}
+            </Text>
+          )}
+        </View>
+
+        {item.status === "REJECTED" && item.rejectionReason ? (
+          <Text style={ac.rejection} numberOfLines={2}>
+            {item.rejectionReason}
+          </Text>
+        ) : null}
+
+       <View style={ac.footer}>
+  {item.companionsCount > 0 ? (
+    <Text style={ac.companionTxt}>+{item.companionsCount} companion{item.companionsCount > 1 ? 's' : ''}</Text>
+  ) : (
+    <View />
+  )}
+  <Text style={ac.link}>
+    {item.status === 'APPROVED' ? 'View pass ›' : 'View details ›'}
+  </Text>
+</View>
+
+      </TouchableOpacity>
+    </View>
   );
 }
-
-const card = StyleSheet.create({
-  wrap: {
+const ac = StyleSheet.create({
+  row: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing[3],
+    marginBottom: Spacing[3],
+  },
+  card: {
+    flex: 1,
     backgroundColor: Colors.white,
     borderRadius: BorderRadius.md,
-    padding: Spacing[4],
-    marginBottom: Spacing[3],
-    ...Shadows.base,
+    padding: Spacing[3],
+    gap: 4,
+    ...Shadows.sm,
   },
-  top: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: Spacing[2],
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     gap: Spacing[2],
   },
-  purpose: {
+  title: {
     flex: 1,
     fontSize: FontSizes.base,
     fontWeight: FontWeights.semibold,
     color: Colors.navy,
   },
-  meta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing[3],
-    marginBottom: Spacing[1],
-  },
-  date: {
-    fontSize: FontSizes.sm,
-    color: Colors.textSecondary,
-  },
-  companions: {
-    fontSize: FontSizes.sm,
-    color: Colors.textSecondary,
-  },
+  metaRow: { flexDirection: "row", alignItems: "center", flexWrap: "wrap" },
+  metaTxt: { fontSize: FontSizes.xs, color: Colors.textSecondary },
   rejection: {
     fontSize: FontSizes.xs,
     color: Colors.danger,
-    marginTop: Spacing[1],
     lineHeight: 16,
+    marginTop: 2,
   },
   footer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginTop: Spacing[2],
-    alignItems: 'flex-end',
   },
-  passLink: {
+  companionTxt: {
+  fontSize: FontSizes.sm,
+  color: Colors.textSecondary,
+  fontWeight: FontWeights.medium,
+},
+  link: {
     fontSize: FontSizes.sm,
     fontWeight: FontWeights.semibold,
     color: Colors.gold,
   },
 });
 
-// ── Section header with optional "Show All" ────────────────────────────────────
+// ─── Date Group Header ────────────────────────────────────────────────────────
 
-function SectionHeader({
-  title,
-  count,
+function DateGroupHeader({
+  label,
   onShowAll,
 }: {
-  title: string;
-  count: number;
+  label: string;
   onShowAll?: () => void;
 }) {
   return (
-    <View style={sec.row}>
-      <Text style={sec.title}>{title}</Text>
-      {count > 0 && (
-        <View style={sec.pill}>
-          <Text style={sec.pillText}>{count}</Text>
-        </View>
-      )}
-      {/* Show All button — only rendered when handler is provided */}
+    <View style={dgh.row}>
+      <Text style={dgh.label}>{label}</Text>
       {onShowAll && (
-        <TouchableOpacity
-          onPress={onShowAll}
-          hitSlop={8}
-          style={sec.showAllBtn}
-        >
-          <Text style={sec.showAllText}>Show All ›</Text>
+        <TouchableOpacity onPress={onShowAll} hitSlop={8}>
+          <Text style={dgh.showAll}>Show all ›</Text>
         </TouchableOpacity>
       )}
     </View>
   );
 }
-
-const sec = StyleSheet.create({
+const dgh = StyleSheet.create({
   row: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: Spacing[3],
-    marginTop: Spacing[5],
   },
-  title: {
-    fontSize: FontSizes.md,
-    fontWeight: FontWeights.bold,
-    color: Colors.navy,
-  },
-  pill: {
-    marginLeft: Spacing[2],
-    backgroundColor: Colors.goldLight,
-    borderRadius: BorderRadius.full,
-    paddingHorizontal: Spacing[2],
-    paddingVertical: 2,
-  },
-  pillText: {
+  label: {
     fontSize: FontSizes.xs,
     fontWeight: FontWeights.bold,
-    color: Colors.goldDark,
+    color: Colors.textSecondary,
+    letterSpacing: 0.8,
   },
-  // Pushes "Show All" to the far right
-  showAllBtn: {
-    marginLeft: 'auto',
-  },
-  showAllText: {
-    fontSize: FontSizes.sm,
+  showAll: {
+    fontSize: FontSizes.xs,
     fontWeight: FontWeights.semibold,
     color: Colors.gold,
   },
 });
 
+// ─── Empty State ──────────────────────────────────────────────────────────────
+
 function EmptyState({ label }: { label: string }) {
   return (
-    <View style={empty.wrap}>
-      <Text style={empty.text}>{label}</Text>
+    <View style={es.wrap}>
+      <Text style={es.text}>{label}</Text>
     </View>
   );
 }
-
-const empty = StyleSheet.create({
-  wrap: {
-    paddingVertical: Spacing[5],
-    alignItems: 'center',
-  },
-  text: {
-    fontSize: FontSizes.sm,
-    color: Colors.textSecondary,
-  },
+const es = StyleSheet.create({
+  wrap: { paddingVertical: Spacing[5], alignItems: "center" },
+  text: { fontSize: FontSizes.sm, color: Colors.textSecondary },
 });
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
@@ -288,10 +615,10 @@ export default function CitizenHomeScreen() {
   } = useAppointmentStore();
 
   const [refreshing, setRefreshing] = useState(false);
+  const [activeTab, setActiveTab] = useState<"upcoming" | "past">("upcoming");
 
-  const firstName = citizenUser?.fullName?.split(' ')[0] ?? 'there';
-
-  // ── Fetch ─────────────────────────────────────────────────────────────────
+  const firstName = citizenUser?.fullName?.split(" ")[0] ?? "there";
+  const userInitial = (citizenUser?.fullName?.[0] ?? "U").toUpperCase();
 
   async function fetchAppointments(silent = false) {
     if (!silent) setLoading(true);
@@ -299,9 +626,9 @@ export default function CitizenHomeScreen() {
     try {
       const res = await appointmentService.getMyAppointments();
       if (res.success) setAppointments(res.data);
-      else setError(res.message ?? 'Failed to load appointments');
+      else setError(res.message ?? "Failed to load appointments");
     } catch {
-      setError('Could not load appointments. Please try again.');
+      setError("Could not load appointments. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -317,36 +644,26 @@ export default function CitizenHomeScreen() {
     setRefreshing(false);
   }
 
-  // ── Derived — cap at 3 each ───────────────────────────────────────────────
+  const allUpcoming = getUpcoming();
+  const allPast = getPast();
+  const nextApproved = getNextApproved();
+  const allActive = activeTab === "upcoming" ? allUpcoming : allPast;
+  const displayList = allActive.slice(0, 3);
 
-  const allUpcoming    = getUpcoming();
-  const allPast        = getPast();
-  const nextApproved   = getNextApproved();
-
-  // Only the 3 most recent of each bucket shown on home
-  const recentUpcoming = allUpcoming.slice(0, 3);
-  const recentPast     = allPast.slice(0, 3);
-
-  // ── Navigation helpers ────────────────────────────────────────────────────
-
-  function goToDetail(appointmentId: string) {
-    navigation.navigate('AppointmentDetail', { appointmentId });
+  function goToDetail(id: string) {
+    navigation.navigate("AppointmentDetail", { appointmentId: id });
   }
-
   function goToMyAppointments() {
-    // Navigate to the MyAppointments tab inside CitizenTabs
-    navigation.navigate('CitizenTabs', { screen: 'MyAppointments' });
+    navigation.navigate("CitizenTabs", { screen: "MyAppointments" });
   }
-
-  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <View style={styles.root}>
-      <AppHeader title="Book Darshan Portal" />
+    <View style={s.root}>
+      <AppHeader title="Book Appointment Portal" />
 
       <ScrollView
         contentContainerStyle={[
-          styles.scroll,
+          s.scroll,
           { paddingBottom: insets.bottom + Layout.tabBarHeight + Spacing[8] },
         ]}
         showsVerticalScrollIndicator={false}
@@ -359,87 +676,71 @@ export default function CitizenHomeScreen() {
           />
         }
       >
-        {/* Greeting */}
-        <Text style={styles.greeting}>Hello, {firstName} 👋</Text>
+        {/* ── Greeting ─────────────────────────────────────────── */}
+        <Text style={s.greeting}>Hello, {firstName} 👋</Text>
+        <Text style={s.sub}>
+          {allUpcoming.length > 0
+            ? `You have ${allUpcoming.length} upcoming appointment${allUpcoming.length > 1 ? "s" : ""}.`
+            : "Here's what's coming up for you."}
+        </Text>
 
-        {/* Next approved pass banner */}
+        {/* ── Ticket pass ───────────────────────────────────────── */}
         {nextApproved && (
-          <TouchableOpacity
-            style={styles.passBanner}
+          <UpcomingPassTicket
+            appt={nextApproved}
             onPress={() => goToDetail(nextApproved.id)}
-            activeOpacity={0.8}
-          >
-            <View style={styles.passBannerLeft}>
-              <Text style={styles.passBannerLabel}>UPCOMING PASS</Text>
-              <Text style={styles.passBannerDate}>
-                {formatDate(nextApproved.appointmentDate)}
-              </Text>
-              <Text style={styles.passBannerPurpose} numberOfLines={1}>
-                {nextApproved.purposeOfVisit}
-              </Text>
-            </View>
-            <View style={styles.passBannerRight}>
-              <Text style={styles.passBannerCta}>View Pass ›</Text>
-            </View>
-          </TouchableOpacity>
+          />
         )}
 
-        {/* Loading */}
+        {/* ── Loading ───────────────────────────────────────────── */}
         {isLoading && !refreshing && (
           <ActivityIndicator
-            style={styles.loader}
+            style={s.loader}
             size="large"
             color={Colors.gold}
           />
         )}
 
-        {/* Error */}
-        {!isLoading && error ? (
-          <View style={styles.errorBox}>
-            <Text style={styles.errorText}>{error}</Text>
+        {/* ── Error ─────────────────────────────────────────────── */}
+        {!isLoading && error && (
+          <View style={s.errBox}>
+            <Text style={s.errTxt}>{error}</Text>
             <TouchableOpacity onPress={() => fetchAppointments()}>
-              <Text style={styles.retryText}>Retry</Text>
+              <Text style={s.retry}>Retry</Text>
             </TouchableOpacity>
           </View>
-        ) : null}
+        )}
 
-        {/* Appointment lists */}
+        {/* ── Appointment list ──────────────────────────────────── */}
         {!isLoading && !error && (
           <>
-            {/* Upcoming — "Show All" only when there are more than 3 */}
-            <SectionHeader
-              title="Upcoming"
-              count={allUpcoming.length}
-              onShowAll={allUpcoming.length > 3 ? goToMyAppointments : undefined}
+            <TabSwitcher
+              active={activeTab}
+              upCount={allUpcoming.length}
+              pastCount={allPast.length}
+              onChange={setActiveTab}
             />
-            {recentUpcoming.length === 0 ? (
-              <EmptyState label="No upcoming appointments" />
-            ) : (
-              recentUpcoming.map((a) => (
-                <AppointmentCard
-                  key={a.id}
-                  item={a}
-                  onPress={() => goToDetail(a.id)}
-                  onViewPass={() => goToDetail(a.id)}
-                />
-              ))
-            )}
 
-            {/* Previous — "Show All" only when there are more than 3 */}
-            <SectionHeader
-              title="Previous"
-              count={allPast.length}
-              onShowAll={allPast.length > 3 ? goToMyAppointments : undefined}
+            <DateGroupHeader
+              label={makeTodayLabel()}
+              onShowAll={allActive.length > 3 ? goToMyAppointments : undefined}
             />
-            {recentPast.length === 0 ? (
-              <EmptyState label="No past appointments" />
+
+            {displayList.length === 0 ? (
+              <EmptyState
+                label={
+                  activeTab === "upcoming"
+                    ? "No upcoming appointments"
+                    : "No past appointments"
+                }
+              />
             ) : (
-              recentPast.map((a) => (
+              displayList.map((a) => (
                 <AppointmentCard
                   key={a.id}
                   item={a}
+                  initial={userInitial}
                   onPress={() => goToDetail(a.id)}
-                  onViewPass={() => goToDetail(a.id)}
                 />
               ))
             )}
@@ -452,72 +753,28 @@ export default function CitizenHomeScreen() {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: Colors.navyLight,
-  },
-  scroll: {
-    paddingHorizontal: Layout.screenPaddingH,
-    paddingTop: Spacing[4],
-  },
+const s = StyleSheet.create({
+  root: { flex: 1, backgroundColor: Colors.navyLight },
+  scroll: { paddingHorizontal: Layout.screenPaddingH, paddingTop: Spacing[4] },
   greeting: {
     fontSize: FontSizes.xxl,
     fontWeight: FontWeights.bold,
     color: Colors.navy,
-    marginBottom: Spacing[3],
+    marginBottom: 2,
   },
-
-  // ── Pass banner ──
-  passBanner: {
-    backgroundColor: Colors.navy,
-    borderRadius: BorderRadius.md,
-    padding: Spacing[4],
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: Spacing[2],
-    ...Shadows.md,
-  },
-  passBannerLeft: { flex: 1, gap: 4 },
-  passBannerLabel: {
-    fontSize: FontSizes.xs,
-    fontWeight: FontWeights.bold,
-    color: Colors.gold,
-    letterSpacing: 1,
-  },
-  passBannerDate: {
-    fontSize: FontSizes.lg,
-    fontWeight: FontWeights.bold,
-    color: Colors.white,
-  },
-  passBannerPurpose: {
+  sub: {
     fontSize: FontSizes.sm,
-    color: Colors.gray400,
+    color: Colors.textSecondary,
+    marginBottom: Spacing[4],
   },
-  passBannerRight: {
-    paddingLeft: Spacing[3],
-  },
-  passBannerCta: {
-    fontSize: FontSizes.sm,
-    fontWeight: FontWeights.bold,
-    color: Colors.gold,
-  },
-
-  // ── Loading / error ──
-  loader: {
-    marginTop: Spacing[8],
-  },
-  errorBox: {
-    marginTop: Spacing[5],
-    alignItems: 'center',
-    gap: Spacing[2],
-  },
-  errorText: {
+  loader: { marginTop: Spacing[8] },
+  errBox: { marginTop: Spacing[5], alignItems: "center", gap: Spacing[2] },
+  errTxt: {
     fontSize: FontSizes.base,
     color: Colors.danger,
-    textAlign: 'center',
+    textAlign: "center",
   },
-  retryText: {
+  retry: {
     fontSize: FontSizes.base,
     fontWeight: FontWeights.semibold,
     color: Colors.gold,

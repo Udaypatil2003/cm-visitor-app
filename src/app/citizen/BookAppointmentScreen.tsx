@@ -52,6 +52,11 @@ export default function BookAppointmentScreen() {
   const [companions, setCompanions] = useState<number>(0);
   const [purpose, setPurpose] = useState("");
   const [purposeError, setPurposeError] = useState("");
+  const [whomToVisit, setWhomToVisit] = useState("");
+  const [whomError, setWhomError] = useState("");
+  const [referenceName, setReferenceName] = useState("");
+  const [referenceError, setReferenceError] = useState("");
+  const [vehicleNumber, setVehicleNumber] = useState(""); // optional — no error state
 
   // ── Companions helpers ────────────────────────────────────────────────────
 
@@ -74,16 +79,41 @@ export default function BookAppointmentScreen() {
 
   // ── Validation & proceed ──────────────────────────────────────────────────
 
-  function handleReview() {
+function handleReview() {
+    let ok = true;
+
     if (purpose.trim().length < 10) {
       setPurposeError("Please describe your purpose (min 10 characters).");
-      return;
+      ok = false;
+    } else {
+      setPurposeError("");
     }
-    setPurposeError("");
+
+    if (whomToVisit.trim().length === 0) {
+      setWhomError("Please specify whom you wish to meet.");
+      ok = false;
+    } else {
+      setWhomError("");
+    }
+
+    if (referenceName.trim().length === 0) {
+      setReferenceError("Please enter a reference.");
+      ok = false;
+    } else {
+      setReferenceError("");
+    }
+
+    if (!ok) return;
+
+    const normalizedVehicle = vehicleNumber.trim().toUpperCase();
+
     navigation.navigate("AppointmentConfirm", {
       appointmentDate: selectedDate,
       companionsCount: companions as 0 | 1 | 2,
       purposeOfVisit: purpose.trim(),
+      whomToVisit: whomToVisit.trim(),
+      referenceName: referenceName.trim(),
+      vehicleNumber: normalizedVehicle.length > 0 ? normalizedVehicle : null,
     });
   }
 
@@ -96,6 +126,11 @@ export default function BookAppointmentScreen() {
       selectedTextColor: Colors.navy,
     },
   };
+
+   const canSubmit =
+    purpose.trim().length >= 10 &&
+    whomToVisit.trim().length > 0 &&
+    referenceName.trim().length > 0;
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -142,6 +177,52 @@ export default function BookAppointmentScreen() {
           <Text style={styles.errorText}>{purposeError}</Text>
         ) : null}
         <Text style={styles.charCount}>{purpose.length}/300</Text>
+
+        {/* ── Whom to Visit ───────────────────────────────────────────── */}
+        <Text style={styles.label}>Whom to Visit</Text>
+        <TextInput
+          style={[styles.input, whomError ? styles.inputError : null]}
+          placeholder="e.g. Hon. Minister / PA / concerned dept."
+          placeholderTextColor={Colors.placeholder}
+          value={whomToVisit}
+          onChangeText={(t) => {
+            setWhomToVisit(t);
+            if (whomError && t.trim().length > 0) setWhomError("");
+          }}
+          maxLength={100}
+        />
+        {whomError ? <Text style={styles.errorText}>{whomError}</Text> : null}
+
+        {/* ── Reference ───────────────────────────────────────────────── */}
+        <Text style={styles.label}>Reference</Text>
+        <TextInput
+          style={[styles.input, referenceError ? styles.inputError : null]}
+          placeholder="Name of person who referred you"
+          placeholderTextColor={Colors.placeholder}
+          value={referenceName}
+          onChangeText={(t) => {
+            setReferenceName(t);
+            if (referenceError && t.trim().length > 0) setReferenceError("");
+          }}
+          maxLength={100}
+        />
+        {referenceError ? (
+          <Text style={styles.errorText}>{referenceError}</Text>
+        ) : null}
+
+        {/* ── Vehicle Number (optional) ───────────────────────────────── */}
+        <Text style={styles.label}>
+          Vehicle Number <Text style={styles.optionalTag}>(optional)</Text>
+        </Text>
+        <TextInput
+          style={styles.input}
+          placeholder="e.g. MH 04 AB 1234"
+          placeholderTextColor={Colors.placeholder}
+          value={vehicleNumber}
+          onChangeText={(t) => setVehicleNumber(t.toUpperCase())}
+          autoCapitalize="characters"
+          maxLength={15}
+        />
 
         {/* ── Calendar ─────────────────────────────────────────────────── */}
         <Text style={styles.label}>Select Date</Text>
@@ -193,7 +274,6 @@ export default function BookAppointmentScreen() {
           />
         </View>
 
-        {/* ── Companions ───────────────────────────────────────────────── */}
         {/* ── Companions ───────────────────────────────────────────────── */}
         <Text style={styles.label}>Number of Companions</Text>
         <View style={styles.companionsCenterWrap}>
@@ -268,8 +348,8 @@ export default function BookAppointmentScreen() {
         </View>
 
         {/* ── CTA ──────────────────────────────────────────────────────── */}
-        <TouchableOpacity
-          style={[styles.cta, purpose.trim().length < 10 && styles.ctaDisabled]}
+         <TouchableOpacity
+          style={[styles.cta, !canSubmit && styles.ctaDisabled]}
           onPress={handleReview}
           activeOpacity={0.85}
         >
@@ -351,6 +431,26 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     textAlign: "right",
     marginTop: 4,
+  },
+
+  input: {
+    height: Layout.inputHeight,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing[4],
+    fontSize: FontSizes.base,
+    color: Colors.textPrimary,
+    backgroundColor: Colors.white,
+    marginTop: Spacing[2],
+  },
+  inputError: {
+    borderColor: Colors.danger,
+  },
+  optionalTag: {
+    fontSize: FontSizes.sm,
+    fontWeight: FontWeights.regular,
+    color: Colors.textSecondary,
   },
 
   // Calendar

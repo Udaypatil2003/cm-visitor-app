@@ -88,7 +88,7 @@ export default function SplashScreen({ navigation }: Props) {
 
       {/* Title */}
       <View style={styles.titleSection}>
-        <Text style={styles.title}>Book Darshan</Text>
+        <Text style={styles.title}>Book Appointment</Text>
         <Text style={styles.subtitle}>Hon. Minister's Bungalow</Text>
 
         {/* Divider with lotus */}

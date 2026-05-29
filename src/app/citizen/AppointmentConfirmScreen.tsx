@@ -1,29 +1,3 @@
-/**
- * AppointmentConfirmScreen.tsx
- *
- * BEHAVIOUR CHANGE (per request):
- *   Phase A (pre-submit review card) is REMOVED from the UI.
- *   On mount the screen immediately calls appointmentService.createAppointment()
- *   and renders a full-screen loading state while the call is in flight.
- *   On success it transitions directly to Phase B — the "Darshan Confirmed"
- *   e-ticket.  On error it shows a dismissible error banner with a Retry
- *   button so the user is never left stranded.
- *
- * Navigation params in (from BookAppointmentScreen):
- *   appointmentDate   : string        — ISO date string
- *   companionsCount   : 0 | 1 | 2
- *   purposeOfVisit    : string
- *
- * Reads  : authStore → citizenUser
- * Writes : appointmentStore.addAppointment(newAppointment)
- *
- * Rules observed:
- *   • Zero API calls in screen — all via appointmentService
- *   • Zero hardcoded colours — all from Colors / theme constants
- *   • No react-hook-form (no user-input on this screen)
- *   • All 3 UI states handled: submitting | error | submitted
- *   • TypeScript strict — no `any`
- */
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -60,32 +34,24 @@ import type { Appointment } from "../../types/appointment.types";
 import { formatDate } from "../../utils/dateUtils";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import ViewShot, { captureRef } from "react-native-view-shot";
-import * as Sharing from 'expo-sharing';
+import * as Sharing from "expo-sharing";
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { CitizenStackParamList } from '../../navigation/types';
 
 
 // ─── Navigation types (kept minimal — fill in with your navigator's param list) ─
-type Props = {
-  navigation: {
-    goBack: () => void;
-    navigate: (screen: string) => void;
-    reset: (state: { index: number; routes: { name: string }[] }) => void;
-  };
-  route: {
-    params: {
-      appointmentDate: string;
-      companionsCount: 0 | 1 | 2;
-      purposeOfVisit: string;
-    };
-  };
-};
+type Props = NativeStackScreenProps<CitizenStackParamList, 'AppointmentConfirm'>;
+
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 type ScreenState = "submitting" | "error" | "submitted";
 
+
 export default function AppointmentConfirmScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
-  const { appointmentDate, companionsCount, purposeOfVisit } = route.params;
+    const { appointmentDate, companionsCount, purposeOfVisit, whomToVisit, referenceName, vehicleNumber } =
+    route.params;
 
   const citizenUser = useAuthStore((s) => s.citizenUser);
   console.log("DEBUG citizenUser:", JSON.stringify(citizenUser, null, 2));
@@ -110,6 +76,9 @@ export default function AppointmentConfirmScreen({ navigation, route }: Props) {
         appointmentDate,
         companionsCount,
         purposeOfVisit,
+        whomToVisit,
+        referenceName,
+        vehicleNumber: vehicleNumber ?? undefined, 
       });
 
       if (!result.success) {
@@ -162,27 +131,27 @@ export default function AppointmentConfirmScreen({ navigation, route }: Props) {
   }, []);
 
   // ── Share handler ────────────────────────────────────────────────────────
- const handleShare = useCallback(async () => {
-  if (!appointment || !citizenUser) return;
-  try {
-    const uri = await captureRef(ticketRef, {
-      format:  'png',
-      quality: 1,
-      result:  'tmpfile',
-    });
-
-    const isAvailable = await Sharing.isAvailableAsync();
-    if (isAvailable) {
-      await Sharing.shareAsync(uri, {
-        mimeType:   'image/png',
-        dialogTitle: 'Share Darshan E-Ticket',
-        UTI:         'public.png',   // iOS only, ignored on Android
+  const handleShare = useCallback(async () => {
+    if (!appointment || !citizenUser) return;
+    try {
+      const uri = await captureRef(ticketRef, {
+        format: "png",
+        quality: 1,
+        result: "tmpfile",
       });
+
+      const isAvailable = await Sharing.isAvailableAsync();
+      if (isAvailable) {
+        await Sharing.shareAsync(uri, {
+          mimeType: "image/png",
+          dialogTitle: "Share Appointment E-Ticket",
+          UTI: "public.png", // iOS only, ignored on Android
+        });
+      }
+    } catch {
+      // cancelled
     }
-  } catch {
-    // cancelled
-  }
-}, [appointment, citizenUser]);
+  }, [appointment, citizenUser]);
 
   // ── Navigate home ────────────────────────────────────────────────────────
   const handleDone = useCallback(() => {

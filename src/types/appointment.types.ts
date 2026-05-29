@@ -7,16 +7,23 @@ export interface Appointment {
   appointmentDate: string;       // ISO date string, date only
   companionsCount: CompanionsCount;
   purposeOfVisit: string;
+  whomToVisit: string;           // NEW — required
+  referenceName: string;         // NEW — required (person who referred)
+  vehicleNumber: string | null;  // NEW — optional, null when not provided
   status: AppointmentStatus;
   rejectionReason: string | null;
-  qrToken: string;               // signed JWT from backend
-  qrExpiresAt: string;           // midnight of appointmentDate
+  qrToken: string;
+  qrExpiresAt: string;
   createdAt: string;
   updatedAt: string;
 }
+
 
 export interface CreateAppointmentPayload {
   appointmentDate: string;
   companionsCount: CompanionsCount;
   purposeOfVisit: string;
+  whomToVisit: string;           // NEW
+  referenceName: string;         // NEW
+ vehicleNumber?: string; 
 }

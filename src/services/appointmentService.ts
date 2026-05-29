@@ -21,6 +21,9 @@ function mapBackendToAppointment(raw: any): Appointment {
       raw.companions_count ??
       0) as CompanionsCount,
     purposeOfVisit: raw.purposeofvisit ?? raw.purpose_of_visit ?? "",
+    whomToVisit: raw.whomtovisit ?? raw.whom_to_visit ?? "",                 // NEW
+    referenceName: raw.referencename ?? raw.reference_name ?? "",            // NEW
+    vehicleNumber: raw.vehiclenumber ?? raw.vehicle_number ?? null,          // NEW
     status: (raw.status as AppointmentStatus) ?? "PENDING",
     rejectionReason: raw.rejectionreason ?? raw.rejection_reason ?? null,
     qrToken: raw.qrtoken ?? raw.qr_token ?? "",
@@ -64,6 +67,9 @@ const appointmentService = {
       appointmentdate: data.appointmentDate,
       companionscount: data.companionsCount,
       purposeofvisit: data.purposeOfVisit,
+      whomtovisit: data.whomToVisit,                  // NEW
+      referencename: data.referenceName,              // NEW
+      vehiclenumber: data.vehicleNumber ?? null,      // NEW
     };
 
     const response = await apiClient.post<any>(
