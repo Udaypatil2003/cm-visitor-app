@@ -28,7 +28,6 @@ import appointmentService from "../../services/appointmentService";
 import { CitizenStackParamList } from "../../navigation/types";
 import { Appointment, AppointmentStatus } from "../../types/appointment.types";
 
-
 type Nav = NativeStackNavigationProp<CitizenStackParamList>;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -36,23 +35,23 @@ type Nav = NativeStackNavigationProp<CitizenStackParamList>;
 // Handles both "2026-05-29" and "2026-05-29T00:00:00.000Z"
 function parseLocalDate(iso: string): Date {
   // Strip to date-only part first, then force local midnight
-  const datePart = iso.split('T')[0];  // "2026-05-29T..." → "2026-05-29"
+  const datePart = iso.split("T")[0]; // "2026-05-29T..." → "2026-05-29"
   return new Date(`${datePart}T00:00:00`);
 }
 
 function formatLongDate(iso: string) {
-  return parseLocalDate(iso).toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: 'long',
-    year: 'numeric',
+  return parseLocalDate(iso).toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
   });
 }
 
 function formatShortDate(iso: string) {
-  return parseLocalDate(iso).toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
+  return parseLocalDate(iso).toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
   });
 }
 function makeTodayLabel() {
@@ -431,23 +430,30 @@ const tdot = StyleSheet.create({
 
 // ─── Appointment Card (right-screen design) ───────────────────────────────────
 
+// ─── Appointment Card (LEFT-screen design) ────────────────────────────────────
+
 function AppointmentCard({
   item,
-  initial,
   onPress,
 }: {
   item: Appointment;
-  initial: string;
   onPress: () => void;
 }) {
-  // whomToVisit was added in the previous step — falls back gracefully if absent
-  const location = (item as any).whomToVisit as string | undefined;
+  const d = parseLocalDate(item.appointmentDate);
+  const mon = d.toLocaleDateString("en-IN", { month: "short" }).toUpperCase();
+  const day = d.getDate();
 
   return (
-    <View style={ac.row}>
-      <TimelineDot status={item.status} />
+    <TouchableOpacity style={ac.row} onPress={onPress} activeOpacity={0.75}>
+      {/* ── Date block ── */}
+      <View style={ac.dateBadge}>
+        <Text style={ac.dateMon}>{mon}</Text>
+        <Text style={ac.dateDay}>{day}</Text>
+      </View>
 
-      <TouchableOpacity style={ac.card} onPress={onPress} activeOpacity={0.75}>
+      {/* ── Card ── */}
+      <View style={ac.card}>
+        {/* Row 1: title + badge */}
         <View style={ac.titleRow}>
           <Text style={ac.title} numberOfLines={1}>
             {item.purposeOfVisit}
@@ -455,46 +461,67 @@ function AppointmentCard({
           <StatusBadge status={item.status} />
         </View>
 
-        <View style={ac.metaRow}>
-          <Text style={ac.metaTxt}>
-            🕐 {formatShortDate(item.appointmentDate)}
-          </Text>
-          {!!location && (
-            <Text style={ac.metaTxt} numberOfLines={1}>
-              {" "}
-              · 📍 {location}
-            </Text>
-          )}
-        </View>
+        {/* Row 2: date/time meta */}
+        <Text style={ac.metaTxt}>
+          🕐 {formatShortDate(item.appointmentDate)}
+        </Text>
 
+        {/* Row 3: rejection reason (only if REJECTED) */}
         {item.status === "REJECTED" && item.rejectionReason ? (
           <Text style={ac.rejection} numberOfLines={2}>
             {item.rejectionReason}
           </Text>
         ) : null}
 
-       <View style={ac.footer}>
-  {item.companionsCount > 0 ? (
-    <Text style={ac.companionTxt}>+{item.companionsCount} companion{item.companionsCount > 1 ? 's' : ''}</Text>
-  ) : (
-    <View />
-  )}
-  <Text style={ac.link}>
-    {item.status === 'APPROVED' ? 'View pass ›' : 'View details ›'}
-  </Text>
-</View>
-
-      </TouchableOpacity>
-    </View>
+        {/* Row 4: companion count + action link */}
+        <View style={ac.footer}>
+          {item.companionsCount > 0 ? (
+            <Text style={ac.companionTxt}>
+              +{item.companionsCount} companion
+              {item.companionsCount > 1 ? "s" : ""}
+            </Text>
+          ) : (
+            <View />
+          )}
+          <Text style={ac.link}>
+            {item.status === "APPROVED" ? "View pass ›" : "View details ›"}
+          </Text>
+        </View>
+      </View>
+    </TouchableOpacity>
   );
 }
+
 const ac = StyleSheet.create({
   row: {
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "stretch",
     gap: Spacing[3],
     marginBottom: Spacing[3],
   },
+  // ── Date badge ──
+  dateBadge: {
+    width: 52,
+    backgroundColor: Colors.goldLight,
+    borderRadius: BorderRadius.md,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing[2],
+    flexShrink: 0,
+  },
+  dateMon: {
+    fontSize: FontSizes.xs,
+    fontWeight: FontWeights.bold,
+    color: Colors.goldDark,
+    letterSpacing: 0.8,
+  },
+  dateDay: {
+    fontSize: FontSizes["3xl"],
+    fontWeight: FontWeights.extrabold,
+    color: Colors.navy,
+    lineHeight: 34,
+  },
+  // ── Card ──
   card: {
     flex: 1,
     backgroundColor: Colors.white,
@@ -515,8 +542,10 @@ const ac = StyleSheet.create({
     fontWeight: FontWeights.semibold,
     color: Colors.navy,
   },
-  metaRow: { flexDirection: "row", alignItems: "center", flexWrap: "wrap" },
-  metaTxt: { fontSize: FontSizes.xs, color: Colors.textSecondary },
+  metaTxt: {
+    fontSize: FontSizes.xs,
+    color: Colors.textSecondary,
+  },
   rejection: {
     fontSize: FontSizes.xs,
     color: Colors.danger,
@@ -527,13 +556,13 @@ const ac = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginTop: Spacing[2],
+    marginTop: Spacing[1],
   },
   companionTxt: {
-  fontSize: FontSizes.sm,
-  color: Colors.textSecondary,
-  fontWeight: FontWeights.medium,
-},
+    fontSize: FontSizes.sm,
+    color: Colors.textSecondary,
+    fontWeight: FontWeights.medium,
+  },
   link: {
     fontSize: FontSizes.sm,
     fontWeight: FontWeights.semibold,
@@ -659,7 +688,7 @@ export default function CitizenHomeScreen() {
 
   return (
     <View style={s.root}>
-      <AppHeader title="Book Appointment Portal" />
+      <AppHeader title="Book Appointment" />
 
       <ScrollView
         contentContainerStyle={[
@@ -739,7 +768,6 @@ export default function CitizenHomeScreen() {
                 <AppointmentCard
                   key={a.id}
                   item={a}
-                  initial={userInitial}
                   onPress={() => goToDetail(a.id)}
                 />
               ))

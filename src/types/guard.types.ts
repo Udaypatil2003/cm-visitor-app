@@ -21,4 +21,19 @@ export interface QRVerifyResult {
   appointmentdate: string | null;
   companionscount: number | null;
   purposeofvisit: string | null;
+    whomtovisit?: string | null;
+  referencename?: string | null;
+  vehiclenumber?: string | null;
+}
+
+export interface GuardBookVisitorPayload {
+  mobilenumber:   string;
+  username:       string;
+  password:       string;
+  appointmentDate: string;
+  companionsCount: number;
+  purposeOfVisit:  string;
+  referenceName?:  string;
+  vehicleNumber?:  string;
+  photoUri?:       string;   // local file URI from image picker
 }

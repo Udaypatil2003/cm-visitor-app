@@ -20,6 +20,8 @@ export const GET_APPOINTMENT_BY_ID = (id: string) => `/appointments/${id}`;
 
 // GUARD
 export const VERIFY_QR = "/guard/verify-qr";
+export const GUARD_BOOK_VISITOR = '/guard/appointments'; 
+
 
 // NOTIFICATIONS
 export const UPDATE_FCM_TOKEN = "/citizen/fcm-token";

@@ -27,6 +27,9 @@ function mapBackendToQRVerifyResult(raw: any, topLevel: any): QRVerifyResult {
     appointmentdate: raw.appointmentdate ?? null,
     companionscount: raw.companionscount ?? null,
     purposeofvisit:  raw.purposeofvisit  ?? null,
+      whomtovisit:     raw.whomtovisit     ?? null,
+    referencename:   raw.referencename   ?? null,
+    vehiclenumber:   raw.vehiclenumber   ?? null,
   };
 }
 

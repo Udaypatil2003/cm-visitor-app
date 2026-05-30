@@ -1,4 +1,3 @@
-
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -35,26 +34,31 @@ import { formatDate } from "../../utils/dateUtils";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import ViewShot, { captureRef } from "react-native-view-shot";
 import * as Sharing from "expo-sharing";
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import type { CitizenStackParamList } from '../../navigation/types';
-
+import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+import type { CitizenStackParamList } from "../../navigation/types";
 
 // ─── Navigation types (kept minimal — fill in with your navigator's param list) ─
-type Props = NativeStackScreenProps<CitizenStackParamList, 'AppointmentConfirm'>;
-
+type Props = NativeStackScreenProps<
+  CitizenStackParamList,
+  "AppointmentConfirm"
+>;
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 type ScreenState = "submitting" | "error" | "submitted";
 
-
 export default function AppointmentConfirmScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
-    const { appointmentDate, companionsCount, purposeOfVisit, whomToVisit, referenceName, vehicleNumber } =
-    route.params;
+  const {
+    appointmentDate,
+    companionsCount,
+    purposeOfVisit,
+    whomToVisit,
+    referenceName,
+    vehicleNumber,
+  } = route.params;
 
   const citizenUser = useAuthStore((s) => s.citizenUser);
-  console.log("DEBUG citizenUser:", JSON.stringify(citizenUser, null, 2));
 
   const addAppointment = useAppointmentStore((s) => s.addAppointment);
 
@@ -78,7 +82,7 @@ export default function AppointmentConfirmScreen({ navigation, route }: Props) {
         purposeOfVisit,
         whomToVisit,
         referenceName,
-        vehicleNumber: vehicleNumber ?? undefined, 
+        vehicleNumber: vehicleNumber ?? undefined,
       });
 
       if (!result.success) {
@@ -108,9 +112,6 @@ export default function AppointmentConfirmScreen({ navigation, route }: Props) {
         }),
       ]).start();
     } catch (err: unknown) {
-      // TEMPORARY DEBUG — remove after fix
-      console.log("RAW ERROR:", JSON.stringify(err, null, 2));
-      console.log("ERR KEYS:", err instanceof Error ? err.message : err);
 
       const message =
         err instanceof Error ? err.message : "Network error. Please try again.";
@@ -124,6 +125,9 @@ export default function AppointmentConfirmScreen({ navigation, route }: Props) {
     addAppointment,
     ticketOpacity,
     ticketTranslateY,
+    whomToVisit,
+    referenceName,
+    vehicleNumber,
   ]);
 
   useEffect(() => {
@@ -324,6 +328,29 @@ export default function AppointmentConfirmScreen({ navigation, route }: Props) {
                   label="MEETING VENUE"
                   value="Virar Bungalow, Civil Lines Area, Opp. State Bank, PIN 401303"
                 />
+
+                {/* ── NEW ─────────────────────────────────────────────────────── */}
+                {appointment.whomToVisit ? (
+                  <DetailRow
+                    icon={<PersonIcon />}
+                    label="WHOM TO VISIT"
+                    value={appointment.whomToVisit}
+                  />
+                ) : null}
+                {appointment.referenceName ? (
+                  <DetailRow
+                    icon={<DocIcon />}
+                    label="REFERENCE"
+                    value={appointment.referenceName}
+                  />
+                ) : null}
+                {appointment.vehicleNumber ? (
+                  <DetailRow
+                    icon={<PinIcon />}
+                    label="VEHICLE NO."
+                    value={appointment.vehicleNumber}
+                  />
+                ) : null}
 
                 {/* Aadhaar */}
                 <View style={styles.aadhaarRow}>

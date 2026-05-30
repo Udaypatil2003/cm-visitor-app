@@ -123,13 +123,12 @@ export default function LoginScreen({ navigation }: Props) {
               </View>
               <Text style={s.headerTitle}>Access Portal</Text>
             </View>
-            <Text style={s.headerPin}>📍</Text>
           </View>
 
           {/* ── Hero Image ── */}
           <View style={s.heroWrap}>
             <Image
-              source={{ uri: "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&q=80" }}
+              source={require('../../../assets/bunglow.jpeg')}
               style={s.heroImage}
             />
             <View style={s.heroOverlay} />
@@ -139,7 +138,7 @@ export default function LoginScreen({ navigation }: Props) {
               </View>
               <View>
                 <Text style={s.locationLabel}>LOCATION</Text>
-                <Text style={s.locationName}>Virar Bungalow, Mumbai</Text>
+                <Text style={s.locationName}>Nandanvan Bungalow, Mumbai</Text>
               </View>
             </View>
           </View>
@@ -275,17 +274,7 @@ export default function LoginScreen({ navigation }: Props) {
                 </TouchableOpacity>
               </View>
 
-              <View style={s.noteCard}>
-                <View style={s.noteIconWrap}>
-                  <Text>📋</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={s.noteTitle}>What happens next?</Text>
-                  <Text style={s.noteBody}>
-                    After registering, complete your Aadhaar-linked profile for gate access.
-                  </Text>
-                </View>
-              </View>
+             
 
               {error ? <Text style={s.error}>{error}</Text> : null}
 
@@ -326,7 +315,7 @@ const s = StyleSheet.create({
   scroll: { paddingBottom: Spacing.xxl },
   header: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-    paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg, paddingVertical: Spacing.xl,
   },
   headerLeft: { flexDirection: "row", alignItems: "center", gap: Spacing.sm },
   logoBadge: {
@@ -364,7 +353,7 @@ const s = StyleSheet.create({
   mainTabText: { fontSize: FontSizes.sm, color: Colors.textSecondary, fontWeight: FontWeights.medium },
   mainTabTextActive: { color: Colors.textPrimary, fontWeight: FontWeights.semibold },
   form: { paddingHorizontal: Spacing.lg },
-  formTitle: { fontSize: FontSizes.xl, fontWeight: FontWeights.bold, color: Colors.textPrimary, marginBottom: Spacing.xs },
+  formTitle: { fontSize: FontSizes["2xl"], fontWeight: FontWeights.bold, color: Colors.textPrimary, marginBottom: Spacing.xs },
   formSub: { fontSize: FontSizes.sm, color: Colors.textSecondary, marginBottom: Spacing.lg, lineHeight: 20 },
   label: { fontSize: FontSizes.sm, fontWeight: FontWeights.medium, color: Colors.textPrimary, marginBottom: Spacing.xs },
   input: {

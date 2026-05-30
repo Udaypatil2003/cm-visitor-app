@@ -194,68 +194,53 @@ export default function QRScannerScreen() {
       />
 
       {/* Dark overlay with cutout */}
-      <View style={styles.overlay}>
-        {/* Top dark strip */}
-        <View style={[styles.overlayStrip, { paddingTop: insets.top }]}>
-          <Header onBack={() => navigation.goBack()} transparent />
-          <Text style={styles.overlayTitle}>Scan Visitor QR</Text>
-          <Text style={styles.overlaySubtitle}>
-            Align the QR code within the frame
-          </Text>
-        </View>
+<View style={styles.overlay}>
 
-        {/* Middle row: dark | cutout frame | dark */}
-        <View style={styles.overlayMiddle}>
-          <View style={styles.overlaySide} />
+  {/* Top strip — header + text only, semi-transparent */}
+  <View style={[styles.overlayStrip, { paddingTop: insets.top }]}>
+    <Header onBack={() => navigation.goBack()} transparent />
+    <Text style={styles.overlayTitle}>Scan Visitor QR</Text>
+    <Text style={styles.overlaySubtitle}>
+      Align the QR code within the frame
+    </Text>
+  </View>
 
-          {/* QR Frame */}
-          <View
-            style={[styles.frame, { width: FRAME_SIZE, height: FRAME_SIZE }]}
-          >
-            {/* Corner marks */}
-            <View style={[styles.corner, styles.cornerTL]} />
-            <View style={[styles.corner, styles.cornerTR]} />
-            <View style={[styles.corner, styles.cornerBL]} />
-            <View style={[styles.corner, styles.cornerBR]} />
+  {/* Center — frame only, no side panels */}
+  <View style={styles.frameCenter}>
+    <View style={[styles.frame, { width: FRAME_SIZE, height: FRAME_SIZE }]}>
+      <View style={[styles.corner, styles.cornerTL]} />
+      <View style={[styles.corner, styles.cornerTR]} />
+      <View style={[styles.corner, styles.cornerBL]} />
+      <View style={[styles.corner, styles.cornerBR]} />
 
-            {/* Animated scan line */}
-            {!locked && (
-              <Animated.View
-                style={[
-                  styles.scanLine,
-                  { transform: [{ translateY: scanLineTranslate }] },
-                ]}
-              />
-            )}
-
-            {/* Verifying overlay inside frame */}
-            {verifying && (
-              <View style={styles.verifyingOverlay}>
-                <ActivityIndicator color={Colors.gold} size="large" />
-                <Text style={styles.verifyingText}>Verifying…</Text>
-              </View>
-            )}
-          </View>
-
-          <View style={styles.overlaySide} />
-        </View>
-
-        {/* Bottom dark strip */}
-        <View
+      {!locked && (
+        <Animated.View
           style={[
-            styles.overlayStrip,
-            { paddingBottom: insets.bottom + Spacing[4] },
+            styles.scanLine,
+            { transform: [{ translateY: scanLineTranslate }] },
           ]}
-        >
-          {locked && !verifying ? (
-            <Text style={styles.scannedText}>✓ QR Scanned</Text>
-          ) : (
-            <Text style={styles.hintText}>
-              Hold steady — scanning automatically
-            </Text>
-          )}
+        />
+      )}
+
+      {verifying && (
+        <View style={styles.verifyingOverlay}>
+          <ActivityIndicator color={Colors.gold} size="large" />
+          <Text style={styles.verifyingText}>Verifying…</Text>
         </View>
-      </View>
+      )}
+    </View>
+  </View>
+
+  {/* Bottom strip */}
+  <View style={[styles.overlayStrip, { paddingBottom: insets.bottom + Spacing[4] }]}>
+    {locked && !verifying ? (
+      <Text style={styles.scannedText}>✓ QR Scanned</Text>
+    ) : (
+      <Text style={styles.hintText}>Hold steady — scanning automatically</Text>
+    )}
+  </View>
+
+</View>
     </View>
   );
 }
@@ -335,12 +320,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "space-between",
   },
-  overlayStrip: {
-    backgroundColor: "rgba(0,0,0,0.65)",
-    alignItems: "center",
-    gap: Spacing[1],
-    paddingVertical: Spacing[4],
-  },
+ overlayStrip: {
+  backgroundColor: 'rgba(0,0,0,0.45)',
+  alignItems: 'center',
+  gap: Spacing[1],
+  paddingVertical: Spacing[4],
+},
   overlayTitle: {
     fontSize: FontSizes.xl,
     fontWeight: FontWeights.bold,
@@ -350,10 +335,17 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.sm,
     color: "rgba(255,255,255,0.65)",
   },
-  overlayMiddle: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
+ overlayMiddle: {
+  flex: 1,
+  alignItems: 'center',
+  justifyContent: 'center',
+},
+
+frameCenter: {
+  flex: 1,
+  alignItems: 'center',
+  justifyContent: 'center',
+},
   overlaySide: {
     flex: 1,
     height: 260,

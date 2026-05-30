@@ -48,6 +48,7 @@ import type { Appointment } from "../../types/appointment.types";
 import type { CitizenStackParamList } from "../../navigation/types";
 import ViewShot, { captureRef } from "react-native-view-shot";
 import * as Sharing from "expo-sharing";
+import { Avatar } from "../../components/common/Avatar";
 
 // ─── Nav types ────────────────────────────────────────────────────────────────
 
@@ -318,15 +319,15 @@ export default function AppointmentDetailScreen() {
               <View style={styles.ticketCard}>
                 {/* Visitor name */}
                 <View style={styles.visitorRow}>
-                  <Text style={styles.personIcon}>👤</Text>
-                  <View>
-                    <Text style={styles.visitorLabel}>VISITOR NAME</Text>
-                    <Text style={styles.visitorName}>
-                      {citizenUser?.fullName ?? "—"}
-                    </Text>
-                  </View>
+                  <Avatar
+                    uri={citizenUser?.profilePhotoUrl ?? null}
+                    size={130}
+                  />
+                  <Text style={styles.visitorLabel}>VISITOR NAME</Text>
+                  <Text style={styles.visitorName}>
+                    {citizenUser?.fullName ?? "—"}
+                  </Text>
                 </View>
-
                 {/* ── QR section ── */}
                 {isRejected ? (
                   /* REJECTED → no QR, show denied */
@@ -418,6 +419,31 @@ export default function AppointmentDetailScreen() {
                   label="REASON"
                   value={appointment.purposeOfVisit}
                 />
+
+                {/* ── NEW ─────────────────────────────────────────────────────── */}
+                {appointment.whomToVisit ? (
+                  <DetailRow
+                    icon="👤"
+                    label="WHOM TO VISIT"
+                    value={appointment.whomToVisit}
+                  />
+                ) : null}
+                {appointment.referenceName ? (
+                  <DetailRow
+                    icon="🤝"
+                    label="REFERENCE"
+                    value={appointment.referenceName}
+                  />
+                ) : null}
+                {appointment.vehicleNumber ? (
+                  <DetailRow
+                    icon="🚗"
+                    label="VEHICLE NO."
+                    value={appointment.vehicleNumber}
+                  />
+                ) : null}
+                {/* ── END NEW ─────────────────────────────────────────────────── */}
+
                 <DetailRow
                   icon="📍"
                   label="MEETING VENUE"
@@ -735,17 +761,19 @@ const styles = StyleSheet.create({
 
   // Visitor row
   visitorRow: {
-    flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.sm,
     marginBottom: Spacing.md,
   },
-  personIcon: { fontSize: 20 },
+  visitorTextBlock: {
+    marginLeft: Spacing[3], // 12px gap between avatar and text
+    flex: 1,
+  },
   visitorLabel: {
     fontSize: FontSizes.xs,
     color: Colors.gold,
     fontWeight: FontWeights.bold,
     letterSpacing: 1,
+    marginTop: Spacing.sm,
   },
   visitorName: {
     fontSize: FontSizes.xl,
@@ -753,6 +781,8 @@ const styles = StyleSheet.create({
     color: Colors.navy,
     marginTop: 2,
   },
+
+  personIcon: { fontSize: 20 },
 
   // ── QR section ──
   qrSection: {

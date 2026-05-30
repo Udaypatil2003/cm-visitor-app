@@ -73,12 +73,10 @@ export default function SplashScreen({ navigation }: Props) {
       <View style={styles.photoRingOuter}>
         <View style={styles.photoRingInner}>
           {/* Replace uri with your actual CM photo asset */}
-          <Image
-            source={{
-              uri: "https://via.placeholder.com/200x200/c8a96e/ffffff?text=CM",
-            }}
-            style={styles.photo}
-          />
+         <Image
+  source={require('../../../assets/dcm.jpeg')}
+  style={styles.photo}
+/>
         </View>
         {/* Small badge bottom-right of photo */}
         <View style={styles.photoCornerBadge}>
@@ -104,14 +102,6 @@ export default function SplashScreen({ navigation }: Props) {
       {/* Loader pill */}
       <Animated.View style={[styles.loaderPill, { opacity: loaderOpacity }]}>
         <Text style={styles.loaderText}>INITIALIZING SECURE PORTAL</Text>
-      </Animated.View>
-
-      {/* Swipe up hint */}
-      <Animated.View
-        style={[styles.swipeHint, { transform: [{ translateY: arrowAnim }] }]}
-      >
-        <Text style={styles.swipeArrow}>∧</Text>
-        <Text style={styles.swipeText}>SWIPE UP TO BEGIN</Text>
       </Animated.View>
     </View>
   );

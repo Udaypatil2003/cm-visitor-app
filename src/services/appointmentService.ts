@@ -8,6 +8,7 @@ import {
 import { apiClient } from "./api";
 import * as Endpoints from "../constants/endpoints";
 import { getMidnight } from "../utils/dateUtils";
+import { GuardBookVisitorPayload } from "../types/guard.types";
 
 // ─── Mapper ───────────────────────────────────────────────────────────────────
 // Update field names here once backend appointment response shape is confirmed.
@@ -82,6 +83,42 @@ const appointmentService = {
       data: mapBackendToAppointment(response.data.appointment),
     };
   },
+
+  async guardBookVisitor(
+  data: GuardBookVisitorPayload,
+): Promise<ApiResponse<Appointment>> {
+  // multipart/form-data — axios sets boundary automatically when passed FormData
+  const form = new FormData();
+  form.append('mobilenumber',    data.mobilenumber);
+  form.append('username',        data.username);
+  form.append('password',        data.password);
+  form.append('appointmentdate', data.appointmentDate);
+  form.append('companionscount', String(data.companionsCount));
+  form.append('purposeofvisit',  data.purposeOfVisit);
+  if (data.referenceName) form.append('referencename', data.referenceName);
+  if (data.vehicleNumber) form.append('vehiclenumber', data.vehicleNumber);
+  if (data.photoUri) {
+    const filename = data.photoUri.split('/').pop() ?? 'photo.jpg';
+    const ext      = /\.(\w+)$/.exec(filename)?.[1] ?? 'jpeg';
+    form.append('photo', {
+      uri:  data.photoUri,
+      name: filename,
+      type: `image/${ext}`,
+    } as any);
+  }
+
+  const response = await apiClient.post<any>(
+    Endpoints.GUARD_BOOK_VISITOR,
+    form,
+    { headers: { 'Content-Type': 'multipart/form-data' } },
+  );
+
+  return {
+    success: response.data.success,
+    message: response.data.message ?? '',
+    data:    mapBackendToAppointment(response.data.appointment),
+  };
+},
 };
 
 export default appointmentService;

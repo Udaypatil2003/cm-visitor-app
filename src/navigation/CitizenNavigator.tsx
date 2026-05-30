@@ -333,7 +333,7 @@ const tabStyles = StyleSheet.create({
     borderRadius: 20,
   },
   itemFocused: {
-    backgroundColor: "rgba(245,166,35,0.18)", // translucent gold tint on dark bg
+    backgroundColor: "", // translucent gold tint on dark bg
   },
   // badge kept as-is from original
   badge: {
