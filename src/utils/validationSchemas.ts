@@ -63,6 +63,10 @@ export const onboardingStep3Schema = z.object({
     .string()
     .min(2, 'City name too short')
     .max(100, 'City name too long'),
+  taluka: z
+    .string()
+    .min(2, 'Taluka name too short')
+    .max(100, 'Taluka name too long'),
   district: z
     .string()
     .min(2, 'District name too short')

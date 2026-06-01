@@ -8,6 +8,7 @@ export interface CitizenUser {
   dateOfBirth: string;       // ISO date string
   gender: Gender;
   address: string;
+  taluka: string;     
   city: string;
   district: string;
   profilePhotoUrl: string;
@@ -29,6 +30,7 @@ export interface OnboardingFormData {
   aadhaarNumber: string;
   address: string;
   city: string;
+  taluka: string;     
   district: string;
 profilePhotoUri?: string;
 }

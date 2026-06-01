@@ -11,6 +11,7 @@ const initialFormData: OnboardingFormData = {
   address: '',
   city: '',
   district: '',
+  taluka: '',      
   profilePhotoUri: '',
 };
 
@@ -26,7 +27,9 @@ interface OnboardingState {
   ) => void;
   updateStep1: (data: Pick<OnboardingFormData, 'fullName' | 'dateOfBirth' | 'gender'>) => void;
   updateStep2: (data: Pick<OnboardingFormData, 'aadhaarNumber'>) => void;
-  updateStep3: (data: Pick<OnboardingFormData, 'address' | 'city' | 'district'>) => void;
+updateStep3: (
+  data: Pick<OnboardingFormData, 'address' | 'city' | 'district' | 'taluka'>
+) => void;
   updateStep4: (data: Pick<OnboardingFormData, 'profilePhotoUri'>) => void;
   nextStep: () => void;
   prevStep: () => void;
